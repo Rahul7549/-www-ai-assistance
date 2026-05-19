@@ -8,7 +8,7 @@ const LoginPage = () => {
     const router=useRouter();
 
     const submitLogin=(e:Event)=>{
-        e.preventDefault()
+        e.preventDefault();
         router.replace('/')
     }
 
