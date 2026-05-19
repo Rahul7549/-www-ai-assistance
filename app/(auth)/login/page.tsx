@@ -1,7 +1,17 @@
+"use client"
 import React from 'react';
 import { Bot, MessageSquare, Zap, Mic, Database } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const LoginPage = () => {
+
+    const router=useRouter();
+
+    const submitLogin=(e:Event)=>{
+        e.preventDefault()
+        router.replace('/')
+    }
+
     return (
         <main className="flex flex-col lg:flex-row gap-6 w-full min-h-screen p-4 md:p-[30px] bg-[#020617] text-white font-sans">
             {/* Left Section: Hero/Marketing */}
@@ -105,7 +115,7 @@ const LoginPage = () => {
                             />
                         </div>
 
-                        <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-all">
+                        <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-all" onClick={(e)=>submitLogin(e)}>
                             Log in
                         </button>
                     </form>

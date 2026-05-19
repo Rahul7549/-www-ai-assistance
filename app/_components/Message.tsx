@@ -5,7 +5,7 @@ export function Message({ role, content }: { role: 'user' | 'assistant', content
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-6`}>
       <div className={`max-w-[80%] p-4 rounded-2xl ${
-        isUser ? 'bg-brand-primary rounded-tr-none' : 'bg-bg-card rounded-tl-none border border-white/5'
+        isUser ? 'bg-brand-primary rounded-tr-none bg-indigo-600' : 'bg-bg-card rounded-tl-none border border-white/5'
       }`}>
         <p className="text-sm leading-relaxed">{content}</p>
         {!isUser && (
