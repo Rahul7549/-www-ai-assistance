@@ -154,7 +154,7 @@ const RegistrationPage = () => {
     );
 };
 
-const InputField = ({ label, placeholder, type = "text" }) => (
+const InputField = ({ label='', placeholder='', type = "text" }) => (
     <div className="w-full">
         <label className="text-[10px] uppercase tracking-[2px] text-gray-500 mb-2 block font-bold">{label}</label>
         <input 
