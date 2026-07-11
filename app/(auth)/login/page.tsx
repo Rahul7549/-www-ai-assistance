@@ -1,13 +1,11 @@
 "use client"
 import React, { useState } from 'react';
 import { Bot, MessageSquare, Zap, Mic, Database } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { api } from '@/app/lib/api';
-import { ENDPOINTS } from '@/app/lib/endpoints';
+import { useAuth } from '@/app/lib/auth-context';
 
 const LoginPage = () => {
 
-    const router = useRouter();
+    const { login } = useAuth();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -20,18 +18,7 @@ const LoginPage = () => {
         setLoading(true);
 
         try {
-            const res = await api.post<{
-                success: boolean;
-                data: {
-                    user: { id: string; email: string; firstName: string; lastName: string };
-                    token: { accessToken: string; refreshToken: string };
-                };
-            }>(ENDPOINTS.auth.login, { email, password });
-
-            localStorage.setItem('accessToken', res.data.token.accessToken);
-            localStorage.setItem('refreshToken', res.data.token.refreshToken);
-
-            router.replace('/');
+            await login(email, password);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed');
         } finally {
