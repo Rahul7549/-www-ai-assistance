@@ -65,10 +65,12 @@ import { ChatItem } from "./ChatItem";
 
 
 import { useState } from "react";
-import { Menu, Plus, MessageSquare, History, X } from "lucide-react";
+import { Menu, Plus, MessageSquare, History, X, LogOut } from "lucide-react";
+import { useAuth } from "@/app/lib/auth-context";
 
 export default function Sidebar() {
     const [isOpen, setIsOpen] = useState(false); // Mobile closed by default
+    const { logout } = useAuth();
 
     return (
         <>
@@ -191,18 +193,19 @@ export default function Sidebar() {
                     </div>
                 </nav>
 
-                {/* User Profile Section */}
-                {/* <div className={`w-full pt-4 border-t border-white/5 flex
-          ${isOpen ? "justify-start" : "justify-center md:justify-center"}`}
-                >
-                    {isOpen ? (
-                        <div className="w-full">
-                            <UserProfile name="Rahul Sharma" plan="Pro" />
-                        </div>
-                    ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-700 border border-white/10 shrink-0 md:block hidden" />
-                    )}
-                </div> */}
+                {/* Logout */}
+                <div className={`w-full pt-4 border-t border-white/5 ${isOpen ? "" : "flex justify-center"}`}>
+                    <button
+                        onClick={logout}
+                        className={`flex items-center p-3 rounded-xl hover:bg-red-500/10 w-full group transition-colors
+                        ${isOpen ? "justify-start gap-3" : "justify-center md:justify-center"}`}
+                    >
+                        <LogOut size={20} className="text-gray-400 group-hover:text-red-400 shrink-0" />
+                        <span className={`text-sm text-gray-300 font-medium group-hover:text-red-400 whitespace-nowrap ${isOpen ? "block" : "hidden md:hidden"}`}>
+                            Logout
+                        </span>
+                    </button>
+                </div>
             </aside>
         </>
     );
