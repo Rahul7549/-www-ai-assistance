@@ -3,7 +3,6 @@
 import { Message } from "./Message";
 import ActionPanel from "./ActionPanel";
 import ChatInput from "./ChatInput";
-import VoiceAssistant from "../voice-assistance/page";
 import { Bell, ChevronDown,Menu,MessageSquare ,PanelLeftOpen } from "lucide-react";
 import { ChevronRight } from 'lucide-react';
 // export default function ChatArea() {
