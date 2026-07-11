@@ -125,17 +125,17 @@ import { ChevronRight } from 'lucide-react';
 // }
 
 import { useState } from 'react';
-import { 
-//   ChevronDown, 
-  ChevronRight as LayoutPanelRight, 
-  X, 
-  Send as SendIcon, 
-  Paperclip as PaperclipIcon, 
+import {
+  ChevronRight as LayoutPanelRight,
+  X,
+  Send as SendIcon,
+  Paperclip as PaperclipIcon,
   Mic as MicIcon,
   Search as SearchIcon,
   Copy as CopyIcon,
   RotateCcw as RotateIcon
 } from "lucide-react";
+import VoiceOverlay from "./VoiceOverlay";
 
 // import ActionPanel from "./ActionPanel";
 // import ChatInput from "./ChatInput";
@@ -258,6 +258,7 @@ import {
 
 export default function ChatArea() {
     const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
+    const [isVoiceMode, setIsVoiceMode] = useState(false);
 
     return (
         // Added overflow-hidden to prevent double scrollbars
@@ -320,28 +321,27 @@ export default function ChatArea() {
             </header>
 
             <main className="flex flex-1 overflow-hidden relative">
-                <section className="flex-1 flex flex-col h-full overflow-hidden border-white/5">
-                    
-                    {/* Messages Container - Fixed at 90vh style but responsive */}
+                <section className="flex-1 flex flex-col h-full overflow-hidden border-white/5 relative">
+
+                    {/* Voice Overlay */}
+                    {isVoiceMode && <VoiceOverlay onClose={() => setIsVoiceMode(false)} />}
+
+                    {/* Messages Container */}
                     <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar">
                         <Message role="user" content="Explain quantum computing in simple terms" />
                         <Message role="assistant" content="Quantum computing is a type of computing that uses qubits..." />
-                        
+
                         <div className="flex items-center gap-2 text-text-dim italic text-sm">
                             <div className="w-8 h-8 rounded-full bg-brand-primary/20 flex items-center justify-center">
                                 <span className="animate-bounce">...</span>
                             </div>
                             Thinking...
                         </div>
-
-{/* <VoiceAssistant/> */}
-
-
                     </div>
 
                     {/* Input Footer */}
                     <div className="p-4 md:p-6 shrink-0">
-                        <ChatInput />
+                        <ChatInput onMicClick={() => setIsVoiceMode(true)} />
                     </div>
                 </section>
 
