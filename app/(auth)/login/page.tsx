@@ -1,16 +1,43 @@
 "use client"
-import React from 'react';
+import React, { useState } from 'react';
 import { Bot, MessageSquare, Zap, Mic, Database } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { api } from '@/app/lib/api';
+import { ENDPOINTS } from '@/app/lib/endpoints';
 
 const LoginPage = () => {
 
-    const router=useRouter();
+    const router = useRouter();
 
-    const submitLogin=(e:Event)=>{
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const submitLogin = async (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
-        router.replace('/')
-    }
+        setError('');
+        setLoading(true);
+
+        try {
+            const res = await api.post<{
+                success: boolean;
+                data: {
+                    user: { id: string; email: string; firstName: string; lastName: string };
+                    token: { accessToken: string; refreshToken: string };
+                };
+            }>(ENDPOINTS.auth.login, { email, password });
+
+            localStorage.setItem('accessToken', res.data.token.accessToken);
+            localStorage.setItem('refreshToken', res.data.token.refreshToken);
+
+            router.replace('/');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Login failed');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <main className="flex flex-col lg:flex-row gap-6 w-full min-h-screen p-4 md:p-[30px] bg-[#020617] text-white font-sans">
@@ -94,12 +121,21 @@ const LoginPage = () => {
                         <p className="text-gray-500">Log in to continue to your account</p>
                     </div>
 
-                    <form className="space-y-6">
+                    <form className="space-y-6" onSubmit={submitLogin}>
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm px-4 py-3 rounded-xl">
+                                {error}
+                            </div>
+                        )}
+
                         <div>
                             <label className="block text-sm text-gray-400 mb-2">Email address</label>
                             <input
                                 type="email"
                                 placeholder="rahul.kumar@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
@@ -111,12 +147,19 @@ const LoginPage = () => {
                             <input
                                 type="password"
                                 placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
 
-                        <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-all" onClick={(e)=>submitLogin(e)}>
-                            Log in
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all"
+                        >
+                            {loading ? 'Logging in...' : 'Log in'}
                         </button>
                     </form>
 
