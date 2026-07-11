@@ -1,18 +1,42 @@
-// ─────────────────────────────────────────────────────
-// API HELPER
-//
-// Instead of writing fetch("http://localhost:3001/...")
-// everywhere, import this and use:
-//
-//   import { api } from "@/app/lib/api";
-//
-//   const data = await api.get("/api/auth/...");
-//   const data = await api.post("/api/auth/login", { email, password });
-// ─────────────────────────────────────────────────────
+import { ENDPOINTS } from "@/app/lib/endpoints";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshTokens(): Promise<boolean> {
+  const refreshToken = localStorage.getItem("refreshToken");
+  if (!refreshToken) return false;
+
+  try {
+    const url = `${BASE_URL}${ENDPOINTS.auth.refresh}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    localStorage.setItem("accessToken", data.data.accessToken);
+    localStorage.setItem("refreshToken", data.data.refreshToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function handleRefresh(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = refreshTokens().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
 
 async function request<T = unknown>(
   method: Method,
@@ -21,11 +45,36 @@ async function request<T = unknown>(
 ): Promise<T> {
   const url = `${BASE_URL}${path}`;
 
-  const res = await fetch(url, {
+  const buildHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  let res = await fetch(url, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: buildHeaders(),
     body: body ? JSON.stringify(body) : undefined,
   });
+
+  if (res.status === 401 && path !== ENDPOINTS.auth.login && path !== ENDPOINTS.auth.refresh) {
+    const refreshed = await handleRefresh();
+    if (refreshed) {
+      res = await fetch(url, {
+        method,
+        headers: buildHeaders(),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } else {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      window.location.href = "/login";
+      throw new Error("Session expired");
+    }
+  }
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
