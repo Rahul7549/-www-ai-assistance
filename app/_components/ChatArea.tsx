@@ -334,7 +334,16 @@ export default function ChatArea() {
 
       <main className="flex flex-1 overflow-hidden relative">
         <section className="flex-1 flex flex-col h-full overflow-hidden border-white/5 relative">
-          {isVoiceMode && <VoiceOverlay onClose={() => setIsVoiceMode(false)} />}
+          {isVoiceMode && (
+            <VoiceOverlay
+              onClose={() => {
+                setIsVoiceMode(false);
+                if (selectedConversationId) {
+                  loadMessagesFromDB(selectedConversationId);
+                }
+              }}
+            />
+          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar">
