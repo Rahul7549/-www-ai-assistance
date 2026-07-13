@@ -57,9 +57,15 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     setState(newState);
   }, []);
 
+  const tts = useSpeechSynthesis();
+
   const handleFinalTranscript = useCallback(
     async (transcript: string) => {
       if (!transcript.trim() || !assistant) return;
+
+      if (stateRef.current === "SPEAKING") {
+        tts.cancel();
+      }
 
       updateState("PROCESSING");
 
@@ -90,7 +96,7 @@ export function useVoiceSession(): UseVoiceSessionReturn {
         content: transcript,
       });
     },
-    [assistant, selectedConversationId, addConversation, updateState]
+    [assistant, selectedConversationId, addConversation, updateState, tts]
   );
 
   const stt = useSpeechRecognition({
@@ -98,7 +104,6 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     silenceTimeout: 1500,
   });
 
-  const tts = useSpeechSynthesis();
   const analyser = useAudioAnalyser();
 
   // Sync conversationIdRef when context changes
