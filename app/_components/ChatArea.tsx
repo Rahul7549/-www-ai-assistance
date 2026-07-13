@@ -9,7 +9,8 @@ import VoiceOverlay from "./VoiceOverlay";
 import { getSocket, disconnectSocket } from "@/app/lib/socket";
 import { api } from "@/app/lib/api";
 import { ENDPOINTS } from "@/app/lib/endpoints";
-import { ChevronDown, MessageSquare, X } from "lucide-react";
+import { useConversation } from "@/app/lib/conversation-context";
+import { ChevronDown, MessageSquare, PencilIcon, CheckIcon, X } from "lucide-react";
 
 interface ChatMessage {
   id: string;
@@ -17,17 +18,10 @@ interface ChatMessage {
   content: string;
 }
 
-interface Assistant {
+interface MessageFromAPI {
   id: string;
-  name: string;
-  avatar: string;
-  personality: string;
-}
-
-interface Conversation {
-  id: string;
-  title: string;
-  assistantId: string;
+  role: "USER" | "ASSISTANT";
+  content: string;
 }
 
 export default function ChatArea() {
@@ -35,10 +29,22 @@ export default function ChatArea() {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [assistant, setAssistant] = useState<Assistant | null>(null);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingContentRef = useRef("");
+  const skipLoadRef = useRef(false);
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState("");
+
+  const {
+    assistant,
+    selectedConversationId,
+    selectConversation,
+    addConversation,
+    refreshConversations,
+    renameAssistant,
+  } = useConversation();
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -48,30 +54,42 @@ export default function ChatArea() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  const loadMessagesFromDB = useCallback(async (convId: string) => {
+    try {
+      const res = await api.get<{ success: boolean; data: MessageFromAPI[] }>(
+        ENDPOINTS.conversations.messages(convId)
+      );
+      setMessages(
+        res.data.map((m) => ({
+          id: m.id,
+          role: m.role === "USER" ? "user" : "assistant",
+          content: m.content,
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to load messages:", err);
+    }
+  }, []);
+
+  // Load messages when switching conversations
+  useEffect(() => {
+    if (!selectedConversationId) {
+      setMessages([]);
+      return;
+    }
+
+    if (skipLoadRef.current) {
+      skipLoadRef.current = false;
+      return;
+    }
+
+    setIsLoadingMessages(true);
+    loadMessagesFromDB(selectedConversationId).finally(() => setIsLoadingMessages(false));
+  }, [selectedConversationId, loadMessagesFromDB]);
+
+  // Socket lifecycle
   useEffect(() => {
     let mounted = true;
-
-    const init = async () => {
-      try {
-        const res = await api.get<{ success: boolean; data: Assistant[] }>(ENDPOINTS.assistants.list);
-        if (!mounted) return;
-
-        if (res.data.length) {
-          setAssistant(res.data[0]);
-        } else {
-          const created = await api.post<{ success: boolean; data: Assistant }>(
-            ENDPOINTS.assistants.create,
-            { name: "Nova", personality: "FRIENDLY" }
-          );
-          if (mounted) setAssistant(created.data);
-        }
-      } catch (err) {
-        console.error("Failed to load assistant:", err);
-      }
-    };
-
-    init();
-
     const socket = getSocket();
     socket.connect();
 
@@ -88,20 +106,12 @@ export default function ChatArea() {
       });
     });
 
-    socket.on("ai_done", (data: { conversationId: string; content: string }) => {
+    socket.on("ai_done", (data: { conversationId: string }) => {
       if (!mounted) return;
       streamingContentRef.current = "";
       setIsStreaming(false);
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.id === "streaming") {
-          return [
-            ...prev.slice(0, -1),
-            { ...last, id: crypto.randomUUID(), content: data.content },
-          ];
-        }
-        return prev;
-      });
+      loadMessagesFromDB(data.conversationId);
+      refreshConversations();
     });
 
     socket.on("ai_error", (data: { message: string }) => {
@@ -124,20 +134,22 @@ export default function ChatArea() {
       mounted = false;
       disconnectSocket();
     };
-  }, []);
+  }, [refreshConversations, loadMessagesFromDB]);
 
   const handleSend = async (content: string) => {
     if (isStreaming || !assistant) return;
 
-    let activeConversationId = conversationId;
+    let activeConversationId = selectedConversationId;
 
     if (!activeConversationId) {
       try {
-        const res = await api.post<{ data: Conversation }>(ENDPOINTS.conversations.create, {
-          assistantId: assistant.id,
-        });
+        const res = await api.post<{ data: { id: string; title: string; assistantId: string; createdAt: string } }>(
+          ENDPOINTS.conversations.create,
+          { assistantId: assistant.id }
+        );
         activeConversationId = res.data.id;
-        setConversationId(activeConversationId);
+        skipLoadRef.current = true;
+        addConversation(res.data);
       } catch (err) {
         console.error("Failed to create conversation:", err);
         return;
@@ -163,6 +175,61 @@ export default function ChatArea() {
     });
   };
 
+  const handleStopStreaming = () => {
+    const socket = getSocket();
+    socket.emit("cancel_stream");
+    streamingContentRef.current = "";
+    setIsStreaming(false);
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last?.id === "streaming") {
+        if (!last.content) return prev.slice(0, -1);
+        return [...prev.slice(0, -1), { ...last, id: crypto.randomUUID() }];
+      }
+      return prev;
+    });
+  };
+
+  const handleEditMessage = async (messageId: string, newContent: string) => {
+    if (!selectedConversationId || isStreaming) return;
+    try {
+      await api.put(
+        ENDPOINTS.conversations.editMessage(selectedConversationId, messageId),
+        { content: newContent, regenerate: true }
+      );
+
+      const idx = messages.findIndex((m) => m.id === messageId);
+      setMessages((prev) => [
+        ...prev.slice(0, idx),
+        { ...prev[idx], content: newContent },
+        { id: "streaming", role: "assistant" as const, content: "" },
+      ]);
+
+      setIsStreaming(true);
+      streamingContentRef.current = "";
+
+      const socket = getSocket();
+      socket.emit("user_message", {
+        conversationId: selectedConversationId,
+        content: newContent,
+      });
+    } catch (err) {
+      console.error("Failed to edit message:", err);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!selectedConversationId) return;
+    try {
+      await api.delete(
+        ENDPOINTS.conversations.deleteMessage(selectedConversationId, messageId)
+      );
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (err) {
+      console.error("Failed to delete message:", err);
+    }
+  };
+
   return (
     <div className="relative bg-bg-deep h-screen flex flex-col overflow-hidden">
       {/* Header */}
@@ -183,7 +250,50 @@ export default function ChatArea() {
             )}
           </div>
           <div>
-            <h2 className="font-semibold text-sm md:text-lg">{assistant?.name ?? "Nova"}</h2>
+            {isEditingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const trimmed = editName.trim();
+                      if (trimmed && trimmed !== assistant?.name) renameAssistant(trimmed);
+                      setIsEditingName(false);
+                    }
+                    if (e.key === "Escape") setIsEditingName(false);
+                  }}
+                  className="bg-white/[0.05] border border-indigo-500/30 rounded-lg px-2 py-1 text-sm text-white font-semibold focus:outline-none focus:border-indigo-500/60 w-32"
+                />
+                <button
+                  onClick={() => {
+                    const trimmed = editName.trim();
+                    if (trimmed && trimmed !== assistant?.name) renameAssistant(trimmed);
+                    setIsEditingName(false);
+                  }}
+                  className="p-1 rounded hover:bg-white/10 text-green-400 cursor-pointer"
+                >
+                  <CheckIcon size={16} />
+                </button>
+                <button
+                  onClick={() => setIsEditingName(false)}
+                  className="p-1 rounded hover:bg-white/10 text-gray-400 cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 group/name">
+                <h2 className="font-semibold text-sm md:text-lg">{assistant?.name ?? "Nova"}</h2>
+                <button
+                  onClick={() => { setEditName(assistant?.name ?? ""); setIsEditingName(true); }}
+                  className="p-1 rounded hover:bg-white/10 text-white/0 group-hover/name:text-white/40 transition-colors cursor-pointer"
+                >
+                  <PencilIcon size={14} />
+                </button>
+              </div>
+            )}
             <p className="text-[10px] md:text-xs text-green-400 flex items-center gap-1">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Online
             </p>
@@ -228,7 +338,13 @@ export default function ChatArea() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar">
-            {messages.length === 0 && (
+            {isLoadingMessages && (
+              <div className="flex items-center justify-center h-full">
+                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+
+            {!isLoadingMessages && messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4">
                   <MessageSquare size={28} className="text-indigo-400" />
@@ -244,6 +360,7 @@ export default function ChatArea() {
               if (msg.id === "streaming" && !msg.content) return null;
               const prevMsg = messages[idx - 1];
               const showHeader = msg.role !== "assistant" || !prevMsg || prevMsg.role !== "assistant";
+              const canModify = msg.role === "user" && msg.id !== "streaming" && !isStreaming && !!selectedConversationId;
               return (
                 <MessageBubble
                   key={msg.id}
@@ -253,6 +370,8 @@ export default function ChatArea() {
                   assistantName={assistant?.name}
                   assistantAvatar={assistant?.avatar}
                   showHeader={showHeader}
+                  onEdit={canModify ? (newContent: string) => handleEditMessage(msg.id, newContent) : undefined}
+                  onDelete={canModify ? () => handleDeleteMessage(msg.id) : undefined}
                 />
               );
             })}
@@ -269,7 +388,9 @@ export default function ChatArea() {
             <ChatInput
               onMicClick={() => setIsVoiceMode(true)}
               onSend={handleSend}
+              onStop={handleStopStreaming}
               disabled={isStreaming || !assistant}
+              isStreaming={isStreaming}
             />
           </div>
         </section>
