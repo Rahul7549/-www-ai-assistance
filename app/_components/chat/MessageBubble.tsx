@@ -10,11 +10,13 @@ interface MessageBubbleProps {
   assistantName?: string;
   assistantAvatar?: string;
   showHeader?: boolean;
+  onEdit?: (newContent: string) => void;
+  onDelete?: () => void;
 }
 
-export default function MessageBubble({ role, content, isStreaming, assistantName, assistantAvatar, showHeader = true }: MessageBubbleProps) {
+export default function MessageBubble({ role, content, isStreaming, assistantName, assistantAvatar, showHeader = true, onEdit, onDelete }: MessageBubbleProps) {
   if (role === "user") {
-    return <UserMessage content={content} />;
+    return <UserMessage content={content} onEdit={onEdit} onDelete={onDelete} />;
   }
   return <AssistantMessage content={content} isStreaming={isStreaming} assistantName={assistantName} assistantAvatar={assistantAvatar} showHeader={showHeader} />;
 }

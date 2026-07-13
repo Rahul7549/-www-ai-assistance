@@ -22,6 +22,8 @@ export const ENDPOINTS = {
     listByAssistant: (assistantId: string) => `/api/conversations/assistant/${assistantId}`,
     messages: (id: string) => `/api/conversations/${id}/messages`,
     sendMessage: (id: string) => `/api/conversations/${id}/messages`,
+    editMessage: (id: string, messageId: string) => `/api/conversations/${id}/messages/${messageId}`,
+    deleteMessage: (id: string, messageId: string) => `/api/conversations/${id}/messages/${messageId}`,
     delete: (id: string) => `/api/conversations/${id}`,
   },
   health: '/health',
