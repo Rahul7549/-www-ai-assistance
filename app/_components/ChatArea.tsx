@@ -168,12 +168,19 @@ export default function ChatArea() {
       {/* Header */}
       <header className="flex items-center justify-between p-3 pl-0 border-b-white/5 border-b shrink-0">
         <div className="flex items-center gap-3 pl-6">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border border-white/10">
-            <img
-              src="https://imgcdn.stablediffusionweb.com/2024/12/12/730f79a0-b6b9-40e2-8011-c5e320b8b5ef.jpg"
-              className="w-full h-full object-cover"
-              alt={assistant?.name ?? "Nova"}
-            />
+          <div
+            className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border border-white/10 flex items-center justify-center text-white font-semibold"
+            style={{ background: "linear-gradient(135deg, #6366f1, #a78bfa)" }}
+          >
+            {assistant?.avatar && assistant.avatar !== "default" ? (
+              <img
+                src={`/avatars/${assistant.avatar.toLowerCase()}.png`}
+                className="w-full h-full object-cover"
+                alt={assistant?.name ?? "Nova"}
+              />
+            ) : (
+              <span className="text-lg">{(assistant?.name ?? "N").charAt(0).toUpperCase()}</span>
+            )}
           </div>
           <div>
             <h2 className="font-semibold text-sm md:text-lg">{assistant?.name ?? "Nova"}</h2>
@@ -233,17 +240,25 @@ export default function ChatArea() {
               </div>
             )}
 
-            {messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                role={msg.role}
-                content={msg.content}
-                isStreaming={msg.id === "streaming"}
-              />
-            ))}
+            {messages.map((msg, idx) => {
+              if (msg.id === "streaming" && !msg.content) return null;
+              const prevMsg = messages[idx - 1];
+              const showHeader = msg.role !== "assistant" || !prevMsg || prevMsg.role !== "assistant";
+              return (
+                <MessageBubble
+                  key={msg.id}
+                  role={msg.role}
+                  content={msg.content}
+                  isStreaming={msg.id === "streaming"}
+                  assistantName={assistant?.name}
+                  assistantAvatar={assistant?.avatar}
+                  showHeader={showHeader}
+                />
+              );
+            })}
 
             {isStreaming && messages[messages.length - 1]?.content === "" && (
-              <StreamingIndicator />
+              <StreamingIndicator assistantName={assistant?.name} assistantAvatar={assistant?.avatar} />
             )}
 
             <div ref={messagesEndRef} />

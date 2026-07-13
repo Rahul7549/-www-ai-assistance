@@ -2,15 +2,18 @@
 
 import { useState } from "react";
 import ReactMarkdown, { Components } from "react-markdown";
-import { CopyIcon, RotateCcwIcon } from "lucide-react";
+import { CopyIcon, RotateCcwIcon, SparklesIcon } from "lucide-react";
 import CodeBlock from "./CodeBlock";
 
 interface AssistantMessageProps {
   content: string;
   isStreaming?: boolean;
+  assistantName?: string;
+  assistantAvatar?: string;
+  showHeader?: boolean;
 }
 
-export default function AssistantMessage({ content, isStreaming }: AssistantMessageProps) {
+export default function AssistantMessage({ content, isStreaming, assistantName = "Nova", assistantAvatar, showHeader = true }: AssistantMessageProps) {
   const [copied, setCopied] = useState(false);
 
   const isError = content.startsWith("Error: ");
@@ -20,6 +23,10 @@ export default function AssistantMessage({ content, isStreaming }: AssistantMess
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const avatarSrc = assistantAvatar && assistantAvatar !== "default"
+    ? `/avatars/${assistantAvatar.toLowerCase()}.png`
+    : null;
 
   if (isError) {
     return (
@@ -78,35 +85,54 @@ export default function AssistantMessage({ content, isStreaming }: AssistantMess
   };
 
   return (
-    <div className="flex gap-3.5 items-start mb-6">
-      <div
-        className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-sm text-white font-semibold shrink-0"
-        style={{
-          background: "linear-gradient(135deg, #6366f1, #a78bfa)",
-          boxShadow: "0 2px 8px rgba(99,102,241,0.2)",
-        }}
-      >
-        N
-      </div>
+    <div className={`flex gap-4 items-start max-w-[90%] ${showHeader ? "mb-6" : "mb-6 ml-14"}`}>
+      {showHeader && (
+        <div className="relative shrink-0 mt-1">
+          <div
+            className="w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center text-white font-semibold ring-2 ring-indigo-500/20"
+            style={{
+              background: "linear-gradient(135deg, #6366f1, #a78bfa)",
+              boxShadow: "0 4px 14px rgba(99,102,241,0.25)",
+            }}
+          >
+            {avatarSrc ? (
+              <img src={avatarSrc} alt={assistantName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-base">{assistantName.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
+          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#0b1020]" />
+        </div>
+      )}
 
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-white/40 mb-2 tracking-wide">Nova</p>
+        {showHeader && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-semibold text-white">{assistantName}</span>
+            <span className="flex items-center gap-1 text-[10px] font-medium text-indigo-400/70 bg-indigo-500/10 px-2 py-0.5 rounded-full">
+              <SparklesIcon size={10} />
+              AI
+            </span>
+          </div>
+        )}
 
-        <div className="text-[13.5px] text-white/[0.82] leading-[1.75]">
-          <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+        <div className={`bg-white/[0.03] border border-white/[0.06] rounded-2xl px-5 py-4 ${showHeader ? "rounded-tl-sm" : ""}`}>
+          <div className="text-[13.5px] text-white/[0.85] leading-[1.75]">
+            <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+          </div>
         </div>
 
         {!isStreaming && content && (
-          <div className="flex gap-1.5 mt-3">
+          <div className="flex gap-1 mt-2 ml-1">
             <button
               onClick={handleCopy}
-              className="flex items-center gap-[5px] py-[5px] px-3 rounded-lg text-[11px] text-white/30 bg-white/[0.03] border border-white/[0.06] hover:text-white/70 hover:bg-white/[0.06] transition-all cursor-pointer"
+              className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg text-[11px] text-white/25 hover:text-white/60 hover:bg-white/[0.05] transition-all cursor-pointer"
             >
-              <CopyIcon size={13} />
+              <CopyIcon size={12} />
               {copied ? "Copied!" : "Copy"}
             </button>
-            <button className="flex items-center gap-[5px] py-[5px] px-3 rounded-lg text-[11px] text-white/30 bg-white/[0.03] border border-white/[0.06] hover:text-white/70 hover:bg-white/[0.06] transition-all cursor-pointer">
-              <RotateCcwIcon size={13} />
+            <button className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg text-[11px] text-white/25 hover:text-white/60 hover:bg-white/[0.05] transition-all cursor-pointer">
+              <RotateCcwIcon size={12} />
               Retry
             </button>
           </div>
