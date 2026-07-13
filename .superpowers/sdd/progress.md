@@ -12,3 +12,15 @@ Task 5: complete (commits 95bf359..4df1d06, type check clean)
 Task 6: complete (commits 4df1d06..3362a60, type check clean)
 Task 7: complete (commits 3362a60..b47a8f0, type check clean)
 Task 8: complete (commits b47a8f0..fc1dde5, type check clean)
+
+# Chat Message Redesign Progress
+
+Plan: docs/superpowers/plans/2026-07-13-chat-message-redesign.md
+
+Task 1: complete (commits 865d084..b606f4a, type check clean)
+Task 2: complete (commits b606f4a..074bed7, type check clean)
+Task 3: complete (commits 074bed7..dc4bb99, type check clean)
+  Note: Retry button UI-only (no onClick), matches spec
+Task 4: complete (commits dc4bb99..10cb542, type check clean)
+
+All 4 tasks complete. Chat message redesign done.
