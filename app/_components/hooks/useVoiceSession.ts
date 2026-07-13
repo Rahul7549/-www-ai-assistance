@@ -44,6 +44,7 @@ export function useVoiceSession(): UseVoiceSessionReturn {
   const conversationIdRef = useRef<string | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const prevStateRef = useRef<VoiceState>("IDLE");
+  const wasSpeakingRef = useRef(false);
 
   const {
     assistant,
@@ -153,8 +154,13 @@ export function useVoiceSession(): UseVoiceSessionReturn {
   }, [tts, stt, updateState, refreshConversations]);
 
   // Transition from SPEAKING → LISTENING when TTS finishes
+  // Must wait for isSpeaking to become true first, then detect false
   useEffect(() => {
-    if (stateRef.current === "SPEAKING" && !tts.isSpeaking) {
+    if (tts.isSpeaking) {
+      wasSpeakingRef.current = true;
+    }
+    if (stateRef.current === "SPEAKING" && wasSpeakingRef.current && !tts.isSpeaking) {
+      wasSpeakingRef.current = false;
       updateState("LISTENING");
       stt.reset();
       stt.start();
@@ -204,6 +210,7 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     setAiResponse("");
     aiResponseRef.current = "";
     conversationIdRef.current = null;
+    wasSpeakingRef.current = false;
     updateState("IDLE");
   }, [stt, tts, analyser, updateState]);
 
