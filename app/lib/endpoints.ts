@@ -10,6 +10,20 @@ export const ENDPOINTS = {
     refresh: '/api/auth/refresh',
     logout: '/api/auth/logout',
   },
+  assistants: {
+    list: '/api/assistants',
+    create: '/api/assistants',
+    get: (id: string) => `/api/assistants/${id}`,
+    update: (id: string) => `/api/assistants/${id}`,
+    delete: (id: string) => `/api/assistants/${id}`,
+  },
+  conversations: {
+    create: '/api/conversations',
+    listByAssistant: (assistantId: string) => `/api/conversations/assistant/${assistantId}`,
+    messages: (id: string) => `/api/conversations/${id}/messages`,
+    sendMessage: (id: string) => `/api/conversations/${id}/messages`,
+    delete: (id: string) => `/api/conversations/${id}`,
+  },
   health: '/health',
 } as const;
 

@@ -1,6 +1,10 @@
 import { MicIcon, PaperclipIcon, SendIcon } from "lucide-react";
 
-export default function ChatInput() {
+interface ChatInputProps {
+    onMicClick?: () => void;
+}
+
+export default function ChatInput({ onMicClick }: ChatInputProps) {
     return (
         <div className="p-6 pt-0">
             <div className="max-w-4xl mx-auto relative">
@@ -14,7 +18,7 @@ export default function ChatInput() {
                         <button className="text-gray-400 hover:text-white transition-colors cursor-pointer">
                             <PaperclipIcon size={20} />
                         </button>
-                        <button className="text-gray-400 hover:text-white transition-colors cursor-pointer">
+                        <button onClick={onMicClick} className="text-gray-400 hover:text-white transition-colors cursor-pointer">
                             <MicIcon size={20} />
                         </button>
                         <button className="bg-indigo-600 p-2.5 rounded-xl hover:bg-indigo-500 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-indigo-500/20 cursor-pointer">

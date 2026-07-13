@@ -2,12 +2,20 @@
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, Check, User, Bot, Mic, Upload } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { api } from '@/app/lib/api';
 import { ENDPOINTS, AVATARS, VOICES } from '@/app/lib/endpoints';
+import { useAuth } from '@/app/lib/auth-context';
+
+const PERSONALITIES = [
+    { value: 'PROFESSIONAL', label: 'Professional', desc: 'Clear, precise, and formal' },
+    { value: 'FRIENDLY', label: 'Friendly', desc: 'Warm, casual, and supportive' },
+    { value: 'WITTY', label: 'Witty', desc: 'Clever, engaging, and entertaining' },
+    { value: 'CONCISE', label: 'Concise', desc: 'Direct, brief, no filler' },
+    { value: 'CREATIVE', label: 'Creative', desc: 'Imaginative and inspiring' },
+] as const;
 
 const RegistrationPage = () => {
-    const router = useRouter();
+    const { login } = useAuth();
 
     const [step, setStep] = useState(1);
     const [error, setError] = useState('');
@@ -28,7 +36,6 @@ const RegistrationPage = () => {
     const handleCustomAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         const previewUrl = URL.createObjectURL(file);
         setCustomAvatarPreview(previewUrl);
         setSelectedAvatar('Custom');
@@ -36,36 +43,26 @@ const RegistrationPage = () => {
 
     // Step 3: Assistant identity
     const [assistantName, setAssistantName] = useState('Nova');
+    const [personality, setPersonality] = useState('FRIENDLY');
     const [voice, setVoice] = useState<string>(VOICES[0]);
 
     const steps = [
         { id: 1, title: 'Account', icon: <User size={18} />, desc: 'Create your account' },
         { id: 2, title: 'Avatar', icon: <Bot size={18} />, desc: 'Choose your assistant' },
-        { id: 3, title: 'Identity', icon: <Mic size={18} />, desc: 'Name and voice' },
+        { id: 3, title: 'Identity', icon: <Mic size={18} />, desc: 'Personality and voice' },
     ];
 
     const validateStep = (): boolean => {
         setError('');
-
         if (step === 1) {
-            if (!firstName.trim() || !lastName.trim()) {
-                setError('First name and last name are required');
-                return false;
-            }
-            if (!email.trim()) {
-                setError('Email is required');
-                return false;
-            }
-            if (password.length < 8) {
-                setError('Password must be at least 8 characters');
-                return false;
-            }
-            if (password !== confirmPassword) {
-                setError('Passwords do not match');
-                return false;
-            }
+            if (!firstName.trim() || !lastName.trim()) { setError('First name and last name are required'); return false; }
+            if (!email.trim()) { setError('Email is required'); return false; }
+            if (password.length < 8) { setError('Password must be at least 8 characters'); return false; }
+            if (password !== confirmPassword) { setError('Passwords do not match'); return false; }
         }
-
+        if (step === 3) {
+            if (!assistantName.trim()) { setError('Assistant name is required'); return false; }
+        }
         return true;
     };
 
@@ -80,21 +77,26 @@ const RegistrationPage = () => {
     };
 
     const handleSubmit = async () => {
+        if (!validateStep()) return;
         setError('');
         setLoading(true);
 
         try {
-            await api.post(ENDPOINTS.auth.register, {
-                firstName,
-                lastName,
-                email,
-                password,
+            // 1. Register account
+            await api.post(ENDPOINTS.auth.register, { firstName, lastName, email, password });
+
+            // 2. Login to get JWT tokens
+            await login(email, password);
+
+            // 3. Create the assistant (token is now in localStorage)
+            await api.post(ENDPOINTS.assistants.create, {
+                name: assistantName,
                 avatar: selectedAvatar,
-                assistantName,
-                voice,
+                personality,
+                voiceId: voice,
             });
 
-            router.replace('/login');
+            // login() already redirects to /
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Registration failed');
         } finally {
@@ -139,7 +141,6 @@ const RegistrationPage = () => {
             {/* --- MAIN CONTENT AREA --- */}
             <section className='flex-1 flex flex-col p-6 md:p-12 lg:p-20 overflow-y-auto'>
 
-                {/* Header Text */}
                 <div className="max-w-2xl lg:max-w-none mb-10">
                     <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-4">
                         Your AI Assistant. <span className="text-indigo-400">Your Universe.</span>
@@ -149,7 +150,6 @@ const RegistrationPage = () => {
                     </p>
                 </div>
 
-                {/* Form Card */}
                 <div className="w-full max-w-4xl md:max-w-none bg-[#0b1120] rounded-[32px] border border-white/5 shadow-2xl flex flex-col overflow-hidden">
                     <div className="p-6 md:p-12 flex-1">
 
@@ -223,10 +223,28 @@ const RegistrationPage = () => {
                                 <motion.div key="st3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
                                     <div>
                                         <h2 className="text-3xl font-bold mb-2">Finalize Identity</h2>
-                                        <p className="text-gray-500">Set your assistant&apos;s name and voice</p>
+                                        <p className="text-gray-500">Set your assistant&apos;s name, personality, and voice</p>
                                     </div>
                                     <div className="space-y-6">
                                         <InputField label="Assistant Name" placeholder="e.g. Aura" value={assistantName} onChange={setAssistantName} />
+
+                                        <div>
+                                            <label className="text-[10px] uppercase tracking-[2px] text-gray-500 mb-3 block font-bold">Personality</label>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                                                {PERSONALITIES.map((p) => (
+                                                    <button
+                                                        key={p.value}
+                                                        type="button"
+                                                        onClick={() => setPersonality(p.value)}
+                                                        className={`p-4 rounded-2xl border text-center transition-all ${personality === p.value ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/5 bg-white/5 hover:bg-white/10'}`}
+                                                    >
+                                                        <span className="text-sm font-bold block mb-1">{p.label}</span>
+                                                        <span className="text-[10px] text-gray-500 leading-tight">{p.desc}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
                                         <div>
                                             <label className="text-[10px] uppercase tracking-[2px] text-gray-500 mb-2 block font-bold">Primary Voice</label>
                                             <select
@@ -270,7 +288,7 @@ const RegistrationPage = () => {
                                 disabled={loading}
                                 className="flex items-center gap-2 px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-bold shadow-lg transition-all"
                             >
-                                {loading ? 'Creating...' : 'CREATE ACCOUNT'} <ChevronRight size={18} />
+                                {loading ? 'Creating...' : 'CREATE ASSISTANT'} <ChevronRight size={18} />
                             </button>
                         )}
                     </div>
