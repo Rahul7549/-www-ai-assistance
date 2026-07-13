@@ -81,6 +81,7 @@ export function useSpeechRecognition(
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onFinalTranscriptRef = useRef(onFinalTranscript);
   const finalTranscriptRef = useRef("");
+  const isListeningRef = useRef(false);
 
   useEffect(() => {
     onFinalTranscriptRef.current = onFinalTranscript;
@@ -112,6 +113,7 @@ export function useSpeechRecognition(
 
   const stop = useCallback(() => {
     clearSilenceTimer();
+    isListeningRef.current = false;
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
@@ -169,14 +171,16 @@ export function useSpeechRecognition(
       } else {
         setError(`Speech recognition error: ${event.error}`);
       }
+      isListeningRef.current = false;
       setIsListening(false);
     };
 
     recognition.onend = () => {
-      if (isListening) {
+      if (isListeningRef.current) {
         try {
           recognition.start();
         } catch {
+          isListeningRef.current = false;
           setIsListening(false);
         }
       }
@@ -186,12 +190,14 @@ export function useSpeechRecognition(
 
     try {
       recognition.start();
+      isListeningRef.current = true;
       setIsListening(true);
     } catch {
       setError("Failed to start speech recognition.");
+      isListeningRef.current = false;
       setIsListening(false);
     }
-  }, [isSupported, lang, continuous, interimResults, startSilenceTimer, isListening]);
+  }, [isSupported, lang, continuous, interimResults, startSilenceTimer]);
 
   const reset = useCallback(() => {
     clearSilenceTimer();
