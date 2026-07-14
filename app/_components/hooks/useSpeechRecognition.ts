@@ -126,6 +126,12 @@ export function useSpeechRecognition(
       return;
     }
 
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+
     setError(null);
     setFinalTranscript("");
     setInterimTranscript("");

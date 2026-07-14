@@ -14,6 +14,7 @@ interface UseSpeechSynthesisReturn {
   voices: VoiceOption[];
   selectedVoice: string;
   speak: (text: string) => void;
+  enqueue: (text: string) => void;
   cancel: () => void;
   setVoice: (voiceId: string) => void;
 }
@@ -117,14 +118,14 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
 
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => {
-        setIsSpeaking(false);
+        if (!speechSynthesis.pending) setIsSpeaking(false);
         utteranceRef.current = null;
       };
       utterance.onerror = (e) => {
         if (e.error !== "canceled") {
           console.error("TTS error:", e.error);
         }
-        setIsSpeaking(false);
+        if (!speechSynthesis.pending) setIsSpeaking(false);
         utteranceRef.current = null;
       };
 
@@ -132,6 +133,33 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
       speechSynthesis.speak(utterance);
     },
     [isSupported, cancel, voices, selectedVoice]
+  );
+
+  const enqueue = useCallback(
+    (text: string) => {
+      if (!isSupported || !text.trim()) return;
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = voices.find((v) => v.id === selectedVoice);
+      if (voice) utterance.voice = voice.nativeVoice;
+      utterance.rate = selectedVoice.includes("Energetic") ? 1.1 : 1.0;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => {
+        if (!speechSynthesis.pending) setIsSpeaking(false);
+        utteranceRef.current = null;
+      };
+      utterance.onerror = (e) => {
+        if (e.error !== "canceled") console.error("TTS error:", e.error);
+        if (!speechSynthesis.pending) setIsSpeaking(false);
+        utteranceRef.current = null;
+      };
+
+      utteranceRef.current = utterance;
+      speechSynthesis.speak(utterance);
+    },
+    [isSupported, voices, selectedVoice]
   );
 
   const setVoice = useCallback((voiceId: string) => {
@@ -152,6 +180,7 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
     voices,
     selectedVoice,
     speak,
+    enqueue,
     cancel,
     setVoice,
   };

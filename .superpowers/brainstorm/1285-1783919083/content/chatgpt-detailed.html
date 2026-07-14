@@ -1,0 +1,254 @@
+<h2>ChatGPT-Style — Detailed Design</h2>
+<p class="subtitle">Full mockup showing all message states: user bubble, AI response with markdown, code blocks, streaming, and error. Does this look right?</p>
+
+<style>
+  .chat-preview {
+    background: #0b1020;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    overflow: hidden;
+    margin-top: 20px;
+  }
+  .chat-header-mock {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .chat-header-av {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #a78bfa);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; color: #fff; font-weight: 600;
+  }
+  .chat-header-info h3 { margin: 0; font-size: 14px; color: #fff; }
+  .chat-header-info span { font-size: 10px; color: #22c55e; display: flex; align-items: center; gap: 4px; }
+  .chat-header-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+
+  .chat-body { padding: 24px 20px; display: flex; flex-direction: column; gap: 24px; }
+
+  /* User message */
+  .msg-user { display: flex; justify-content: flex-end; }
+  .msg-user-bubble {
+    background: linear-gradient(135deg, #6366f1, #7c5cff);
+    padding: 12px 18px; border-radius: 20px 20px 6px 20px;
+    max-width: 70%; font-size: 13.5px; color: #fff; line-height: 1.5;
+    box-shadow: 0 2px 12px rgba(99,102,241,0.25);
+  }
+
+  /* AI message */
+  .msg-ai { display: flex; gap: 14px; align-items: flex-start; }
+  .msg-ai-avatar {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, #6366f1, #a78bfa);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: #fff; font-weight: 600;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.2);
+  }
+  .msg-ai-body { flex: 1; min-width: 0; }
+  .msg-ai-name {
+    font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.4);
+    margin-bottom: 8px; letter-spacing: 0.02em;
+  }
+  .msg-ai-content {
+    font-size: 13.5px; color: rgba(255,255,255,0.82); line-height: 1.75;
+  }
+  .msg-ai-content p { margin: 0 0 10px; }
+  .msg-ai-content strong { color: #fff; font-weight: 600; }
+  .msg-ai-content ol, .msg-ai-content ul { margin: 8px 0 12px; padding-left: 22px; }
+  .msg-ai-content li { margin-bottom: 8px; }
+  .msg-ai-content li::marker { color: rgba(124,92,255,0.6); }
+  .msg-ai-content em { color: rgba(255,255,255,0.6); font-style: italic; }
+
+  /* Inline code */
+  .msg-ai-content code.inline {
+    background: rgba(124,92,255,0.12); color: #c4b5fd;
+    padding: 2px 7px; border-radius: 5px; font-size: 12px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    border: 1px solid rgba(124,92,255,0.15);
+  }
+
+  /* Code block */
+  .code-block {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; margin: 14px 0; overflow: hidden;
+  }
+  .code-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .code-lang {
+    font-size: 11px; color: rgba(255,255,255,0.35);
+    font-family: 'JetBrains Mono', monospace; font-weight: 500;
+  }
+  .code-copy-btn {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: rgba(255,255,255,0.3);
+    cursor: pointer; padding: 3px 8px; border-radius: 6px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+    transition: all 0.2s;
+  }
+  .code-copy-btn:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.08); }
+  .code-body {
+    padding: 16px; overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12.5px; line-height: 1.6; color: #e6edf3;
+  }
+  .code-body .kw { color: #ff7b72; }
+  .code-body .fn { color: #d2a8ff; }
+  .code-body .str { color: #a5d6ff; }
+  .code-body .num { color: #79c0ff; }
+  .code-body .cm { color: #8b949e; font-style: italic; }
+  .code-body .type { color: #ffa657; }
+
+  /* Action bar */
+  .msg-actions {
+    display: flex; gap: 6px; margin-top: 12px;
+  }
+  .msg-action {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 8px;
+    font-size: 11px; color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .msg-action:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.06); }
+  .msg-action svg { width: 13px; height: 13px; }
+
+  /* Streaming state */
+  .streaming-dots {
+    display: flex; gap: 4px; padding: 4px 0;
+  }
+  .streaming-dots span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(124,92,255,0.5);
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+  .streaming-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .streaming-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse-dot {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+
+  /* Error state */
+  .msg-error {
+    display: flex; gap: 10px; align-items: center;
+    padding: 10px 16px; border-radius: 10px;
+    background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.15);
+    font-size: 12px; color: rgba(239,68,68,0.8);
+  }
+  .msg-error-icon {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(239,68,68,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; flex-shrink: 0;
+  }
+
+  .section-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.2); padding: 0 20px; margin-top: 8px;
+  }
+</style>
+
+<div class="chat-preview">
+  <div class="chat-header-mock">
+    <div class="chat-header-av">N</div>
+    <div class="chat-header-info">
+      <h3>Nova</h3>
+      <span><span class="chat-header-dot"></span> Online</span>
+    </div>
+  </div>
+
+  <div class="section-label" style="margin-top:16px;">&#9679; User message</div>
+  <div class="chat-body" style="padding-bottom:0;">
+    <div class="msg-user">
+      <div class="msg-user-bubble">Write me a function to reverse a string in JavaScript and explain how it works</div>
+    </div>
+  </div>
+
+  <div class="section-label">&#9679; AI response with markdown, code block, and actions</div>
+  <div class="chat-body" style="padding-top:0;">
+    <div class="msg-ai">
+      <div class="msg-ai-avatar">N</div>
+      <div class="msg-ai-body">
+        <div class="msg-ai-name">Nova</div>
+        <div class="msg-ai-content">
+          <p>Here's a clean way to <strong>reverse a string</strong> in JavaScript:</p>
+
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">javascript</span>
+              <div class="code-copy-btn">&#128203; Copy code</div>
+            </div>
+            <div class="code-body"><span class="kw">function</span> <span class="fn">reverseString</span>(str) {
+  <span class="kw">return</span> str.<span class="fn">split</span>(<span class="str">''</span>).<span class="fn">reverse</span>().<span class="fn">join</span>(<span class="str">''</span>);
+}
+
+<span class="cm">// Usage</span>
+console.<span class="fn">log</span>(<span class="fn">reverseString</span>(<span class="str">'hello'</span>)); <span class="cm">// "olleh"</span></div>
+          </div>
+
+          <p><strong>How it works:</strong></p>
+          <ol>
+            <li><code class="inline">split('')</code> &mdash; Converts the string into an array of characters</li>
+            <li><code class="inline">reverse()</code> &mdash; Reverses the array in-place</li>
+            <li><code class="inline">join('')</code> &mdash; Joins the array back into a string</li>
+          </ol>
+          <p><em>Note: This approach doesn't handle Unicode surrogate pairs. For production use, consider using <code class="inline">Array.from(str)</code> instead of <code class="inline">split('')</code>.</em></p>
+        </div>
+
+        <div class="msg-actions">
+          <div class="msg-action">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copy
+          </div>
+          <div class="msg-action">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+            Retry
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">&#9679; Streaming state (typing indicator)</div>
+  <div class="chat-body" style="padding-top:0; padding-bottom:0;">
+    <div class="msg-ai">
+      <div class="msg-ai-avatar">N</div>
+      <div class="msg-ai-body">
+        <div class="msg-ai-name">Nova</div>
+        <div class="streaming-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">&#9679; Error state</div>
+  <div class="chat-body" style="padding-top:8px;">
+    <div class="msg-error">
+      <div class="msg-error-icon">!</div>
+      Failed to generate response. Please try again.
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:24px; padding: 16px 20px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+  <h3 style="margin:0 0 10px; font-size: 14px; color: #fff;">Design Elements</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: rgba(255,255,255,0.6);">
+    <div>&#10003; Avatar + name label for AI</div>
+    <div>&#10003; Gradient user bubbles</div>
+    <div>&#10003; Code blocks with lang tag + copy</div>
+    <div>&#10003; Syntax-highlighted code</div>
+    <div>&#10003; Inline code styling</div>
+    <div>&#10003; Numbered/bulleted lists</div>
+    <div>&#10003; Copy + Retry action buttons</div>
+    <div>&#10003; Animated typing indicator</div>
+    <div>&#10003; Error state with icon</div>
+    <div>&#10003; Bold, italic, emphasis support</div>
+  </div>
+</div>

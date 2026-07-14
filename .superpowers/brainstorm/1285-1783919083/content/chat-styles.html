@@ -1,0 +1,322 @@
+<h2>Chat Message UI Styles</h2>
+<p class="subtitle">Click the style that feels most modern and professional for your AI assistant</p>
+
+<style>
+  .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  @media (max-width: 900px) { .style-grid { grid-template-columns: 1fr; } }
+
+  .style-card {
+    background: rgba(255,255,255,0.03);
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .style-card:hover { border-color: rgba(124,92,255,0.5); transform: translateY(-2px); }
+  .style-card.selected { border-color: #7c5cff; box-shadow: 0 0 20px rgba(124,92,255,0.2); }
+
+  .style-label {
+    padding: 14px 20px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .style-label .badge {
+    background: rgba(124,92,255,0.15); color: #b0a0ff;
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  }
+  .style-label h3 { margin: 0; font-size: 15px; color: #fff; }
+  .style-label p { margin: 0; font-size: 11px; color: rgba(255,255,255,0.45); }
+
+  .chat-mock {
+    padding: 20px;
+    min-height: 380px;
+    display: flex; flex-direction: column; gap: 16px;
+    background: #0b1020;
+  }
+
+  /* === STYLE A: ChatGPT === */
+  .gpt-user { display: flex; justify-content: flex-end; }
+  .gpt-user-bubble {
+    background: linear-gradient(135deg, #6366f1, #7c5cff);
+    padding: 12px 16px; border-radius: 18px 18px 4px 18px;
+    max-width: 75%; font-size: 13px; color: #fff; line-height: 1.5;
+  }
+  .gpt-ai { display: flex; gap: 12px; align-items: flex-start; }
+  .gpt-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #a78bfa);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .gpt-ai-content { flex: 1; }
+  .gpt-ai-name { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
+  .gpt-ai-text { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.7; }
+  .gpt-ai-text strong { color: #fff; }
+  .gpt-ai-text ol { margin: 8px 0; padding-left: 20px; }
+  .gpt-ai-text li { margin-bottom: 6px; }
+  .gpt-code {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; margin: 10px 0; overflow: hidden;
+  }
+  .gpt-code-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 14px; background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 11px; color: rgba(255,255,255,0.4);
+  }
+  .gpt-code-copy { font-size: 10px; color: rgba(255,255,255,0.35); cursor: pointer; }
+  .gpt-code pre {
+    margin: 0; padding: 14px; font-size: 12px; font-family: 'JetBrains Mono', monospace;
+    color: #c9d1d9; overflow-x: auto; line-height: 1.5;
+  }
+  .gpt-code pre .kw { color: #ff7b72; }
+  .gpt-code pre .fn { color: #d2a8ff; }
+  .gpt-code pre .str { color: #a5d6ff; }
+  .gpt-code pre .cm { color: #8b949e; }
+  .gpt-actions {
+    display: flex; gap: 8px; margin-top: 8px;
+  }
+  .gpt-action-btn {
+    display: flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 8px; font-size: 11px;
+    color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06); cursor: pointer;
+  }
+  .gpt-action-btn:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.08); }
+
+  /* === STYLE B: Claude === */
+  .claude-user { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+  .claude-user-bubble {
+    background: rgba(124,92,255,0.15); border: 1px solid rgba(124,92,255,0.25);
+    padding: 12px 18px; border-radius: 16px; max-width: 70%;
+    font-size: 13px; color: rgba(255,255,255,0.9); line-height: 1.6;
+  }
+  .claude-sep { border: none; border-top: 1px solid rgba(255,255,255,0.04); margin: 4px 0; }
+  .claude-ai-text {
+    font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.8;
+    padding: 8px 4px; letter-spacing: 0.01em;
+  }
+  .claude-ai-text strong { color: #fff; }
+  .claude-ai-text p { margin: 0 0 12px; }
+  .claude-ai-text ol { margin: 8px 0 12px; padding-left: 22px; }
+  .claude-ai-text li { margin-bottom: 8px; }
+
+  /* === STYLE C: Discord === */
+  .disc-msg { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0; }
+  .disc-msg:hover { background: rgba(255,255,255,0.02); border-radius: 8px; padding: 6px 8px; margin: 0 -8px; }
+  .disc-avatar {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  }
+  .disc-avatar.user-av { background: linear-gradient(135deg, #5865f2, #7289da); }
+  .disc-avatar.bot-av { background: linear-gradient(135deg, #6366f1, #a78bfa); display: flex; align-items: center; justify-content: center; }
+  .disc-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .disc-name { font-size: 13px; font-weight: 600; color: #fff; }
+  .disc-bot-tag {
+    font-size: 9px; background: #5865f2; color: #fff; padding: 1px 5px;
+    border-radius: 3px; font-weight: 600; text-transform: uppercase;
+  }
+  .disc-time { font-size: 10px; color: rgba(255,255,255,0.25); }
+  .disc-text { font-size: 13px; color: rgba(255,255,255,0.75); line-height: 1.6; }
+  .disc-text strong { color: #fff; }
+  .disc-text code {
+    background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;
+    font-size: 12px; color: #e8a0bf;
+  }
+  .disc-reactions { display: flex; gap: 6px; margin-top: 6px; }
+  .disc-reaction {
+    background: rgba(88,101,242,0.15); border: 1px solid rgba(88,101,242,0.3);
+    padding: 2px 8px; border-radius: 8px; font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .disc-reaction span { font-size: 10px; color: rgba(255,255,255,0.5); }
+
+  /* === STYLE D: Glassmorphic === */
+  .glass-user { display: flex; justify-content: flex-end; }
+  .glass-user-bubble {
+    background: linear-gradient(135deg, rgba(124,92,255,0.35), rgba(99,102,241,0.25));
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(124,92,255,0.3);
+    padding: 14px 18px; border-radius: 20px 20px 6px 20px;
+    max-width: 70%; font-size: 13px; color: #fff; line-height: 1.5;
+    box-shadow: 0 4px 20px rgba(124,92,255,0.1);
+  }
+  .glass-ai-card {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px; padding: 20px; position: relative;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+  .glass-ai-card::before {
+    content: ''; position: absolute; top: -1px; left: 20px; right: 20px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(124,92,255,0.4), transparent);
+  }
+  .glass-ai-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .glass-ai-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #a78bfa);
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+  }
+  .glass-ai-name { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); }
+  .glass-ai-text { font-size: 13px; color: rgba(255,255,255,0.8); line-height: 1.7; }
+  .glass-ai-text strong { color: #fff; }
+  .glass-ai-text ol { margin: 8px 0; padding-left: 20px; }
+  .glass-ai-text li { margin-bottom: 6px; }
+  .glass-actions {
+    display: flex; gap: 6px; margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .glass-action {
+    width: 30px; height: 30px; border-radius: 10px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: rgba(255,255,255,0.3); cursor: pointer;
+  }
+  .glass-action:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.1); }
+</style>
+
+<div class="style-grid">
+
+  <!-- A: ChatGPT Style -->
+  <div class="style-card" data-choice="chatgpt" onclick="toggleSelect(this)">
+    <div class="style-label">
+      <div>
+        <h3>A. ChatGPT-Style</h3>
+        <p>Clean left-aligned, avatar, polished code blocks</p>
+      </div>
+      <span class="badge">Recommended</span>
+    </div>
+    <div class="chat-mock">
+      <div class="gpt-user">
+        <div class="gpt-user-bubble">List me 5 AI tools</div>
+      </div>
+      <div class="gpt-ai">
+        <div class="gpt-avatar">N</div>
+        <div class="gpt-ai-content">
+          <div class="gpt-ai-name">Nova</div>
+          <div class="gpt-ai-text">
+            Here are <strong>5 popular AI tools</strong> you might find useful:
+            <ol>
+              <li><strong>Google Cloud Vision</strong> &mdash; Image analysis using computer vision for object detection and classification.</li>
+              <li><strong>Amazon Comprehend</strong> &mdash; NLP service for sentiment analysis and entity recognition.</li>
+              <li><strong>TensorFlow.js</strong> &mdash; Build ML models directly in the browser.</li>
+            </ol>
+          </div>
+          <div class="gpt-code">
+            <div class="gpt-code-header"><span>javascript</span><span class="gpt-code-copy">&#9776; Copy</span></div>
+            <pre><span class="kw">import</span> tf <span class="kw">from</span> <span class="str">'@tensorflow/tfjs'</span>;
+<span class="kw">const</span> model = <span class="kw">await</span> tf.<span class="fn">loadLayersModel</span>(<span class="str">'model.json'</span>);</pre>
+          </div>
+          <div class="gpt-actions">
+            <div class="gpt-action-btn">&#128203; Copy</div>
+            <div class="gpt-action-btn">&#8635; Retry</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B: Claude Style -->
+  <div class="style-card" data-choice="claude" onclick="toggleSelect(this)">
+    <div class="style-label">
+      <div>
+        <h3>B. Claude-Style</h3>
+        <p>Minimal, generous whitespace, elegant typography</p>
+      </div>
+    </div>
+    <div class="chat-mock">
+      <div class="claude-user">
+        <div class="claude-user-bubble">List me 5 AI tools</div>
+      </div>
+      <hr class="claude-sep">
+      <div class="claude-ai-text">
+        <p>Here are <strong>5 popular AI tools</strong> you might find useful:</p>
+        <ol>
+          <li><strong>Google Cloud Vision</strong> &mdash; Image analysis using computer vision for object detection, facial recognition, and classification.</li>
+          <li><strong>Amazon Comprehend</strong> &mdash; NLP service for text analysis, sentiment analysis, and entity recognition.</li>
+          <li><strong>Microsoft Azure Cognitive Services</strong> &mdash; Suite of AI tools including computer vision and speech recognition.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: Discord Style -->
+  <div class="style-card" data-choice="discord" onclick="toggleSelect(this)">
+    <div class="style-label">
+      <div>
+        <h3>C. Discord/Slack-Style</h3>
+        <p>Avatar + username, compact, reaction buttons</p>
+      </div>
+    </div>
+    <div class="chat-mock">
+      <div class="disc-msg">
+        <div class="disc-avatar user-av"></div>
+        <div>
+          <div class="disc-header">
+            <span class="disc-name">Rahul</span>
+            <span class="disc-time">Today at 2:34 PM</span>
+          </div>
+          <div class="disc-text">List me 5 AI tools</div>
+        </div>
+      </div>
+      <div class="disc-msg">
+        <div class="disc-avatar bot-av">N</div>
+        <div>
+          <div class="disc-header">
+            <span class="disc-name">Nova</span>
+            <span class="disc-bot-tag">Bot</span>
+            <span class="disc-time">Today at 2:34 PM</span>
+          </div>
+          <div class="disc-text">
+            Here are <strong>5 popular AI tools</strong>:
+            <br><br>
+            1. <strong>Google Cloud Vision</strong> &mdash; Image analysis with computer vision
+            <br>2. <strong>Amazon Comprehend</strong> &mdash; NLP for sentiment &amp; entity recognition
+            <br>3. <strong>TensorFlow.js</strong> &mdash; ML in the browser: <code>tf.loadLayersModel()</code>
+          </div>
+          <div class="disc-reactions">
+            <div class="disc-reaction">&#128077; <span>2</span></div>
+            <div class="disc-reaction">&#128293; <span>1</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- D: Glassmorphic -->
+  <div class="style-card" data-choice="glass" onclick="toggleSelect(this)">
+    <div class="style-label">
+      <div>
+        <h3>D. Glassmorphic Cards</h3>
+        <p>Frosted glass, backdrop blur, glowing accents</p>
+      </div>
+    </div>
+    <div class="chat-mock" style="background: linear-gradient(135deg, #0b1020 0%, #12182b 50%, #0f1528 100%);">
+      <div class="glass-user">
+        <div class="glass-user-bubble">List me 5 AI tools</div>
+      </div>
+      <div class="glass-ai-card">
+        <div class="glass-ai-header">
+          <div class="glass-ai-avatar">N</div>
+          <span class="glass-ai-name">Nova</span>
+        </div>
+        <div class="glass-ai-text">
+          Here are <strong>5 popular AI tools</strong> you might find useful:
+          <ol>
+            <li><strong>Google Cloud Vision</strong> &mdash; Image analysis using computer vision techniques.</li>
+            <li><strong>Amazon Comprehend</strong> &mdash; NLP for sentiment analysis and entity recognition.</li>
+            <li><strong>TensorFlow.js</strong> &mdash; Build and deploy ML models in the browser.</li>
+          </ol>
+        </div>
+        <div class="glass-actions">
+          <div class="glass-action">&#128203;</div>
+          <div class="glass-action">&#8635;</div>
+          <div class="glass-action">&#128077;</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
