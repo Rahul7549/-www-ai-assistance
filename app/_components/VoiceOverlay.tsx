@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Mic, MicOff, Square, ChevronDown } from "lucide-react";
 import {
@@ -59,13 +59,16 @@ const STATUS_CONFIG: Record<
 export default function VoiceOverlay({ onClose }: VoiceOverlayProps) {
   const voice = useVoiceSession();
 
+  const voiceRef = useRef(voice);
   useEffect(() => {
-    voice.start();
+    voiceRef.current = voice;
+  });
+
+  useEffect(() => {
+    voiceRef.current.start();
     return () => {
-      voice.stop();
+      voiceRef.current.stop();
     };
-    // Only run on mount/unmount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClose = () => {
@@ -245,6 +248,30 @@ export default function VoiceOverlay({ onClose }: VoiceOverlayProps) {
         </div>
       </div>
 
+      {/* Live transcript bar — always visible so you can see STT output */}
+      {(voice.state === "LISTENING" || voice.state === "PROCESSING") && (
+        <div className="w-full max-w-lg px-4 py-3 rounded-xl bg-white/5 border border-white/10 min-h-[48px] flex items-center justify-center">
+          {voice.transcript ? (
+            <p className="text-base text-white text-center">
+              <span className="text-white/90">
+                {voice.transcript.replace(voice.interimTranscript, "")}
+              </span>
+              {voice.interimTranscript && (
+                <span className="text-gray-500 italic">
+                  {voice.interimTranscript}
+                </span>
+              )}
+            </p>
+          ) : (
+            <p className="text-gray-600 text-sm text-center">
+              {voice.state === "LISTENING"
+                ? "Waiting for speech..."
+                : "Processing..."}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Transcript / Response area */}
       <div className="text-center max-w-lg min-h-[80px]">
         {voice.state === "ERROR" && voice.error && (
@@ -259,35 +286,28 @@ export default function VoiceOverlay({ onClose }: VoiceOverlayProps) {
           </div>
         )}
 
-        {voice.state === "LISTENING" && (
+        {voice.state === "LISTENING" && !voice.transcript && (
           <div>
-            {voice.transcript ? (
-              <p className="text-lg text-white">
-                {voice.transcript.replace(voice.interimTranscript, "")}
-                <span className="text-gray-500">{voice.interimTranscript}</span>
-              </p>
-            ) : (
-              <div>
-                <h2 className="text-2xl font-semibold mb-1">Speak now</h2>
-                <p className="text-gray-500 text-sm">
-                  How can I help you today?
-                </p>
-              </div>
-            )}
+            <h2 className="text-2xl font-semibold mb-1">Speak now</h2>
+            <p className="text-gray-500 text-sm">
+              How can I help you today?
+            </p>
           </div>
         )}
 
         {voice.state === "PROCESSING" && (
-          <div className="space-y-2">
-            <p className="text-gray-400 text-sm italic">
-              &ldquo;{voice.transcript || "..."}&rdquo;
+          voice.aiResponse ? (
+            <p className="text-white/80 text-sm leading-relaxed max-h-40 overflow-y-auto custom-scrollbar">
+              {voice.aiResponse}
+              <span className="inline-block w-1.5 h-4 bg-yellow-400/60 animate-pulse ml-0.5 align-middle" />
             </p>
+          ) : (
             <div className="flex items-center justify-center gap-1">
               <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce [animation-delay:0ms]" />
               <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce [animation-delay:150ms]" />
               <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce [animation-delay:300ms]" />
             </div>
-          </div>
+          )
         )}
 
         {voice.state === "SPEAKING" && (

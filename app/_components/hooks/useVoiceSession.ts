@@ -1,21 +1,17 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useSpeechRecognition } from "./useSpeechRecognition";
-import { useSpeechSynthesis, type VoiceOption } from "./useSpeechSynthesis";
-import { useAudioAnalyser } from "./useAudioAnalyser";
+import {
+  VoiceSession,
+  type VoiceState,
+  type VoiceOption,
+} from "../voice/VoiceSession";
 import { getSocket } from "@/app/lib/socket";
 import { api } from "@/app/lib/api";
 import { ENDPOINTS } from "@/app/lib/endpoints";
 import { useConversation } from "@/app/lib/conversation-context";
 
-export type VoiceState =
-  | "IDLE"
-  | "LISTENING"
-  | "PROCESSING"
-  | "SPEAKING"
-  | "MUTED"
-  | "ERROR";
+export type { VoiceState, VoiceOption } from "../voice/VoiceSession";
 
 export interface UseVoiceSessionReturn {
   state: VoiceState;
@@ -34,17 +30,58 @@ export interface UseVoiceSessionReturn {
   setVoice: (voiceId: string) => void;
 }
 
-export function useVoiceSession(): UseVoiceSessionReturn {
-  const [state, setState] = useState<VoiceState>("IDLE");
-  const [aiResponse, setAiResponse] = useState("");
-  const [sessionError, setSessionError] = useState<string | null>(null);
+interface Snapshot {
+  state: VoiceState;
+  transcript: string;
+  interimTranscript: string;
+  aiResponse: string;
+  volume: number;
+  error: string | null;
+  isSupported: boolean;
+  selectedVoice: string;
+  voices: VoiceOption[];
+}
 
-  const stateRef = useRef<VoiceState>("IDLE");
-  const aiResponseRef = useRef("");
-  const conversationIdRef = useRef<string | null>(null);
-  const micStreamRef = useRef<MediaStream | null>(null);
-  const prevStateRef = useRef<VoiceState>("IDLE");
-  const wasSpeakingRef = useRef(false);
+function takeSnapshot(s: VoiceSession): Snapshot {
+  return {
+    state: s.state,
+    transcript: s.transcript,
+    interimTranscript: s.interimTranscript,
+    aiResponse: s.aiResponse,
+    volume: s.volume,
+    error: s.error,
+    isSupported: s.isSupported,
+    selectedVoice: s.selectedVoice,
+    voices: s.voices,
+  };
+}
+
+function checkSupport(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) &&
+    "speechSynthesis" in window
+  );
+}
+
+export function useVoiceSession(): UseVoiceSessionReturn {
+  // Lazy-ref init: the == null pattern is the lint-approved way
+  const sessionRef = useRef<VoiceSession | null>(null);
+  if (sessionRef.current == null) {
+    sessionRef.current = new VoiceSession();
+  }
+
+  const [snap, setSnap] = useState<Snapshot>(() => ({
+    state: "IDLE" as const,
+    transcript: "",
+    interimTranscript: "",
+    aiResponse: "",
+    volume: 0,
+    error: null,
+    isSupported: checkSupport(),
+    selectedVoice: "Nova - Energetic & Fast",
+    voices: [],
+  }));
 
   const {
     assistant,
@@ -53,203 +90,135 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     refreshConversations,
   } = useConversation();
 
-  const updateState = useCallback((newState: VoiceState) => {
-    stateRef.current = newState;
-    setState(newState);
-  }, []);
+  const conversationIdRef = useRef<string | null>(null);
+  const assistantRef = useRef(assistant);
+  const addConvRef = useRef(addConversation);
+  const refreshRef = useRef(refreshConversations);
 
-  const tts = useSpeechSynthesis();
+  useEffect(() => {
+    assistantRef.current = assistant;
+    addConvRef.current = addConversation;
+    refreshRef.current = refreshConversations;
+  });
 
-  const handleFinalTranscript = useCallback(
-    async (transcript: string) => {
-      if (!transcript.trim() || !assistant) return;
+  useEffect(() => {
+    conversationIdRef.current = selectedConversationId;
+  }, [selectedConversationId]);
 
-      if (stateRef.current === "SPEAKING") {
-        tts.cancel();
-      }
+  // Wire up session callbacks — ref access inside effects is fine
+  useEffect(() => {
+    const s = sessionRef.current!;
 
-      updateState("PROCESSING");
+    s.onChange = () => setSnap(takeSnapshot(s));
 
-      let convId = conversationIdRef.current || selectedConversationId;
+    s.onFinalTranscript = async (transcript: string) => {
+      const ast = assistantRef.current;
+      if (!transcript.trim() || !ast) return;
 
+      s.setProcessing();
+
+      let convId = conversationIdRef.current;
       if (!convId) {
         try {
           const res = await api.post<{
             success: boolean;
-            data: { id: string; title: string; assistantId: string; createdAt: string };
-          }>(ENDPOINTS.conversations.create, { assistantId: assistant.id });
+            data: {
+              id: string;
+              title: string;
+              assistantId: string;
+              createdAt: string;
+            };
+          }>(ENDPOINTS.conversations.create, { assistantId: ast.id });
           convId = res.data.id;
           conversationIdRef.current = convId;
-          addConversation(res.data);
+          addConvRef.current(res.data);
         } catch {
-          setSessionError("Failed to create conversation.");
-          updateState("ERROR");
+          s.handleError("Failed to create conversation.");
           return;
         }
       }
-
-      aiResponseRef.current = "";
-      setAiResponse("");
 
       const socket = getSocket();
       socket.emit("user_message", {
         conversationId: convId,
         content: transcript,
+        mode: "voice",
       });
-    },
-    [assistant, selectedConversationId, addConversation, updateState, tts]
-  );
-
-  const stt = useSpeechRecognition({
-    onFinalTranscript: handleFinalTranscript,
-    silenceTimeout: 1500,
-  });
-
-  const analyser = useAudioAnalyser();
-
-  // Sync conversationIdRef when context changes
-  useEffect(() => {
-    conversationIdRef.current = selectedConversationId;
-  }, [selectedConversationId]);
-
-  // Socket listeners for AI response
-  useEffect(() => {
-    const socket = getSocket();
-
-    const handleToken = (data: { token: string }) => {
-      if (stateRef.current !== "PROCESSING") return;
-      aiResponseRef.current += data.token;
-      setAiResponse(aiResponseRef.current);
     };
 
-    const handleDone = () => {
-      if (stateRef.current !== "PROCESSING") return;
-      const fullResponse = aiResponseRef.current;
-      refreshConversations();
-
-      if (fullResponse.trim()) {
-        updateState("SPEAKING");
-        tts.speak(fullResponse);
-      } else {
-        updateState("LISTENING");
-        stt.reset();
-        stt.start();
-      }
-    };
-
-    const handleError = (data: { message: string }) => {
-      setSessionError(data.message);
-      updateState("ERROR");
-    };
-
-    socket.on("ai_token", handleToken);
-    socket.on("ai_done", handleDone);
-    socket.on("ai_error", handleError);
+    // Emit initial snapshot so voices etc. are picked up
+    setSnap(takeSnapshot(s));
 
     return () => {
-      socket.off("ai_token", handleToken);
-      socket.off("ai_done", handleDone);
-      socket.off("ai_error", handleError);
+      s.onChange = null;
+      s.onFinalTranscript = null;
     };
-  }, [tts, stt, updateState, refreshConversations]);
+  }, []);
 
-  // Transition from SPEAKING → LISTENING when TTS finishes
-  // Must wait for isSpeaking to become true first, then detect false
+  // Socket listeners
   useEffect(() => {
-    if (tts.isSpeaking) {
-      wasSpeakingRef.current = true;
-    }
-    if (stateRef.current === "SPEAKING" && wasSpeakingRef.current && !tts.isSpeaking) {
-      wasSpeakingRef.current = false;
-      updateState("LISTENING");
-      stt.reset();
-      stt.start();
-    }
-  }, [tts.isSpeaking, stt, updateState]);
+    const s = sessionRef.current!;
+    const socket = getSocket();
 
-  const start = useCallback(async () => {
-    if (!stt.isSupported) {
-      setSessionError(
-        "Voice chat is not supported in this browser. Please use Chrome or Edge."
-      );
-      updateState("ERROR");
-      return;
-    }
+    const onToken = (data: { token: string }) => {
+      s.addToken(data.token);
+    };
 
-    setSessionError(null);
-    setAiResponse("");
-    aiResponseRef.current = "";
+    const onDone = (data?: { conversationId?: string; content?: string }) => {
+      refreshRef.current();
+      s.handleDone(data?.content);
+    };
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream;
-      analyser.start(stream);
-      stt.start();
-      updateState("LISTENING");
-    } catch {
-      setSessionError(
-        "Microphone access is required for voice chat. Please allow microphone access and try again."
-      );
-      updateState("ERROR");
-    }
-  }, [stt, analyser, updateState]);
+    const onError = (data: { message: string }) => {
+      s.handleError(data.message);
+    };
+
+    socket.on("ai_token", onToken);
+    socket.on("ai_done", onDone);
+    socket.on("ai_error", onError);
+
+    return () => {
+      socket.off("ai_token", onToken);
+      socket.off("ai_done", onDone);
+      socket.off("ai_error", onError);
+    };
+  }, []);
+
+  // Methods wrapped in useCallback — ref access inside callbacks is fine
+  const start = useCallback(() => {
+    getSocket().emit("warm_model");
+    sessionRef.current?.start();
+  }, []);
 
   const stop = useCallback(() => {
-    stt.stop();
-    tts.cancel();
-    analyser.stop();
-
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach((t) => t.stop());
-      micStreamRef.current = null;
-    }
-
-    const socket = getSocket();
-    socket.emit("cancel_stream");
-
-    setAiResponse("");
-    aiResponseRef.current = "";
-    conversationIdRef.current = null;
-    wasSpeakingRef.current = false;
-    updateState("IDLE");
-  }, [stt, tts, analyser, updateState]);
+    sessionRef.current?.stop();
+  }, []);
 
   const toggleMute = useCallback(() => {
-    if (stateRef.current === "MUTED") {
-      updateState(prevStateRef.current === "MUTED" ? "LISTENING" : prevStateRef.current);
-      stt.start();
-    } else {
-      prevStateRef.current = stateRef.current;
-      stt.stop();
-      updateState("MUTED");
-    }
-  }, [stt, updateState]);
+    sessionRef.current?.toggleMute();
+  }, []);
 
   const manualSend = useCallback(() => {
-    const text = stt.transcript.trim();
-    if (text) {
-      stt.stop();
-      handleFinalTranscript(text);
-    }
-  }, [stt, handleFinalTranscript]);
+    sessionRef.current?.manualSend();
+  }, []);
 
-  const isSupported = stt.isSupported && tts.isSupported;
-  const combinedError = sessionError || stt.error;
+  const setVoice = useCallback((id: string) => {
+    sessionRef.current?.setVoice(id);
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      sessionRef.current?.destroy();
+    };
+  }, []);
 
   return {
-    state,
-    transcript: stt.transcript,
-    interimTranscript: stt.interimTranscript,
-    aiResponse,
-    volume: analyser.volume,
-    error: combinedError,
-    isSupported,
+    ...snap,
     start,
     stop,
     toggleMute,
     manualSend,
-    selectedVoice: tts.selectedVoice,
-    voices: tts.voices,
-    setVoice: tts.setVoice,
+    setVoice,
   };
 }
