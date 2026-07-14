@@ -69,6 +69,7 @@ export class VoiceSession {
   error: string | null = null;
   selectedVoice = "Nova - Energetic & Fast";
   voices: VoiceOption[] = [];
+  isWarmingUp = false;
 
   onChange: (() => void) | null = null;
   onFinalTranscript: ((text: string) => void) | null = null;
@@ -324,6 +325,7 @@ export class VoiceSession {
     this.cleanup();
     this.error = null;
     this.aiResponse = "";
+    this.isWarmingUp = true;
     this.clearTranscript();
 
     try {
@@ -334,7 +336,6 @@ export class VoiceSession {
       }
       this.micStream = stream;
       this.setupAnalyser(stream);
-      this.setupRecognition();
       this.state = "LISTENING";
       this.notify();
     } catch {
@@ -362,6 +363,7 @@ export class VoiceSession {
       this.micStream = null;
     }
     this.aiResponse = "";
+    this.isWarmingUp = false;
     this.clearTranscript();
   }
 
@@ -384,6 +386,14 @@ export class VoiceSession {
       this.onFinalTranscript?.(text);
     }
   };
+
+  modelReady() {
+    this.isWarmingUp = false;
+    if (this.state === "LISTENING" && !this.recognition) {
+      this.setupRecognition();
+    }
+    this.notify();
+  }
 
   // ─── Called by the hook for socket events ─────────────────
 

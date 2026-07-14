@@ -287,12 +287,21 @@ export default function VoiceOverlay({ onClose }: VoiceOverlayProps) {
         )}
 
         {voice.state === "LISTENING" && !voice.transcript && (
-          <div>
-            <h2 className="text-2xl font-semibold mb-1">Speak now</h2>
-            <p className="text-gray-500 text-sm">
-              How can I help you today?
-            </p>
-          </div>
+          voice.isWarmingUp ? (
+            <div>
+              <h2 className="text-xl font-semibold mb-1 text-indigo-300">Preparing assistant...</h2>
+              <p className="text-gray-500 text-sm">
+                Loading AI model, just a moment
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-2xl font-semibold mb-1">Speak now</h2>
+              <p className="text-gray-500 text-sm">
+                How can I help you today?
+              </p>
+            </div>
+          )
         )}
 
         {voice.state === "PROCESSING" && (
