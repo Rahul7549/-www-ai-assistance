@@ -84,6 +84,9 @@ export class VoiceSession {
   private startAbort: AbortController | null = null;
   private finalText = "";
   private prevMuteState: VoiceState = "LISTENING";
+  private spokenIndex = 0;
+  private streamDone = false;
+  private static SENTENCE_END = /[.!?\n]\s*/;
 
   readonly isSupported: boolean;
 
@@ -267,10 +270,13 @@ export class VoiceSession {
 
   // ─── TTS ──────────────────────────────────────────────────
 
-  private speak(text: string) {
+  private speakSentence(text: string, isFirst: boolean) {
     if (!text.trim()) return;
-    speechSynthesis.cancel();
-    this.teardownRecognition();
+
+    if (isFirst) {
+      speechSynthesis.cancel();
+      this.teardownRecognition();
+    }
 
     const utt = new SpeechSynthesisUtterance(text);
     const voice = this.voices.find((v) => v.id === this.selectedVoice);
@@ -278,28 +284,37 @@ export class VoiceSession {
     utt.rate = this.selectedVoice.includes("Energetic") ? 1.1 : 1.0;
 
     utt.onstart = () => {
-      this.state = "SPEAKING";
-      this.notify();
+      if (this.state !== "SPEAKING") {
+        this.state = "SPEAKING";
+        this.notify();
+      }
     };
 
     utt.onend = () => {
-      this.clearTranscript();
-      this.state = "LISTENING";
-      this.setupRecognition();
-      this.notify();
+      if (this.streamDone && !speechSynthesis.pending) {
+        this.clearTranscript();
+        this.state = "LISTENING";
+        this.setupRecognition();
+        this.notify();
+      }
     };
 
     utt.onerror = (e) => {
       if (e.error === "canceled") return;
-      this.clearTranscript();
-      this.state = "LISTENING";
-      this.setupRecognition();
-      this.notify();
+      if (this.streamDone && !speechSynthesis.pending) {
+        this.clearTranscript();
+        this.state = "LISTENING";
+        this.setupRecognition();
+        this.notify();
+      }
     };
 
-    this.state = "SPEAKING";
-    this.notify();
     speechSynthesis.speak(utt);
+
+    if (this.state !== "SPEAKING") {
+      this.state = "SPEAKING";
+      this.notify();
+    }
   }
 
   private clearTranscript() {
@@ -364,6 +379,8 @@ export class VoiceSession {
     }
     this.aiResponse = "";
     this.isWarmingUp = false;
+    this.spokenIndex = 0;
+    this.streamDone = false;
     this.clearTranscript();
   }
 
@@ -398,18 +415,32 @@ export class VoiceSession {
   // ─── Called by the hook for socket events ─────────────────
 
   addToken(token: string) {
-    if (this.state !== "PROCESSING") return;
+    if (this.state !== "PROCESSING" && this.state !== "SPEAKING") return;
     this.aiResponse += token;
     this.notify();
+
+    const unspoken = this.aiResponse.slice(this.spokenIndex);
+    const match = VoiceSession.SENTENCE_END.exec(unspoken);
+    if (match) {
+      const boundary = this.spokenIndex + match.index + match[0].length;
+      const sentence = this.aiResponse.slice(this.spokenIndex, boundary);
+      this.spokenIndex = boundary;
+      this.speakSentence(sentence, this.state === "PROCESSING");
+    }
   }
 
   handleDone(fullResponse?: string) {
-    if (this.state !== "PROCESSING") return;
+    if (this.state !== "PROCESSING" && this.state !== "SPEAKING") return;
     if (fullResponse && !this.aiResponse) this.aiResponse = fullResponse;
 
-    if (this.aiResponse.trim()) {
-      this.speak(this.aiResponse);
-    } else {
+    this.streamDone = true;
+    this.notify();
+
+    const remaining = this.aiResponse.slice(this.spokenIndex).trim();
+    if (remaining) {
+      this.spokenIndex = this.aiResponse.length;
+      this.speakSentence(remaining, this.state === "PROCESSING");
+    } else if (this.state === "PROCESSING") {
       this.setupRecognition();
       this.state = "LISTENING";
       this.notify();
@@ -425,6 +456,8 @@ export class VoiceSession {
   setProcessing() {
     this.teardownRecognition();
     this.aiResponse = "";
+    this.spokenIndex = 0;
+    this.streamDone = false;
     this.clearTranscript();
     this.state = "PROCESSING";
     this.notify();
