@@ -142,6 +142,9 @@ export function useVoiceSession(): UseVoiceSessionReturn {
         }
       }
 
+      turnStartRef.current = Date.now();
+      ttftLoggedRef.current = false;
+
       const socket = getSocket();
       socket.emit("user_message", {
         conversationId: convId,
@@ -159,16 +162,25 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     };
   }, []);
 
+  // Fix 9: Frontend metrics — track TTFT and turn duration
+  const turnStartRef = useRef<number>(0);
+  const ttftLoggedRef = useRef(false);
+
   // Socket listeners
   useEffect(() => {
     const s = sessionRef.current!;
     const socket = getSocket();
 
     const onToken = (data: { token: string }) => {
+      if (!ttftLoggedRef.current) {
+        ttftLoggedRef.current = true;
+        console.log(`[voice-metrics] client-TTFT=${Date.now() - turnStartRef.current}ms`);
+      }
       s.addToken(data.token);
     };
 
     const onDone = (data?: { conversationId?: string; content?: string }) => {
+      console.log(`[voice-metrics] turn-duration=${Date.now() - turnStartRef.current}ms`);
       refreshRef.current();
       s.handleDone(data?.content);
     };

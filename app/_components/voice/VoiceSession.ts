@@ -88,6 +88,17 @@ export class VoiceSession {
   private streamDone = false;
   private static SENTENCE_END = /[.!?\n]\s*/;
 
+  // Fix 4: Notify throttle — batch rapid state updates into ~50ms frames
+  private notifyTimer: ReturnType<typeof setTimeout> | null = null;
+  private notifyPending = false;
+
+  // Fix 7: handleDone hang safety net
+  private doneTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Fix 8: Volume change threshold — skip tiny changes
+  private lastNotifiedVolume = 0;
+  private static VOLUME_THRESHOLD = 0.02;
+
   readonly isSupported: boolean;
 
   constructor() {
@@ -101,6 +112,21 @@ export class VoiceSession {
 
   private notify() {
     this.onChange?.();
+  }
+
+  private throttledNotify() {
+    if (this.notifyTimer) {
+      this.notifyPending = true;
+      return;
+    }
+    this.notify();
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = null;
+      if (this.notifyPending) {
+        this.notifyPending = false;
+        this.notify();
+      }
+    }, 50);
   }
 
   // ─── Voices ───────────────────────────────────────────────
@@ -213,14 +239,17 @@ export class VoiceSession {
     }
   }
 
+  // Fix 6: Adaptive silence timeout — short for follow-ups, longer for first turn
   private resetSilenceTimer() {
     if (this.silenceTimer) clearTimeout(this.silenceTimer);
+    const hasContext = !!this.aiResponse;
+    const timeout = hasContext ? 800 : 1200;
     this.silenceTimer = setTimeout(() => {
       const text = this.finalText.trim();
       if (text && this.state === "LISTENING") {
         this.onFinalTranscript?.(text);
       }
-    }, 1000);
+    }, timeout);
   }
 
   // ─── Audio analyser ───────────────────────────────────────
@@ -247,8 +276,15 @@ export class VoiceSession {
         const v = (this.dataArray[i] - 128) / 128;
         sum += v * v;
       }
-      this.volume = Math.min(1, Math.sqrt(sum / this.dataArray.length) * 3);
-      this.notify();
+      const newVol = Math.min(1, Math.sqrt(sum / this.dataArray.length) * 3);
+
+      // Fix 8: Only notify if volume changed meaningfully
+      if (Math.abs(newVol - this.lastNotifiedVolume) > VoiceSession.VOLUME_THRESHOLD) {
+        this.volume = newVol;
+        this.lastNotifiedVolume = newVol;
+        this.throttledNotify();
+      }
+
       this.rafId = requestAnimationFrame(tick);
     };
     this.rafId = requestAnimationFrame(tick);
@@ -266,9 +302,21 @@ export class VoiceSession {
     this.analyserNode = null;
     this.dataArray = null;
     this.volume = 0;
+    this.lastNotifiedVolume = 0;
   }
 
   // ─── TTS ──────────────────────────────────────────────────
+
+  private returnToListening() {
+    if (this.doneTimer) {
+      clearTimeout(this.doneTimer);
+      this.doneTimer = null;
+    }
+    this.clearTranscript();
+    this.state = "LISTENING";
+    this.setupRecognition();
+    this.notify();
+  }
 
   private speakSentence(text: string, isFirst: boolean) {
     if (!text.trim()) return;
@@ -292,20 +340,14 @@ export class VoiceSession {
 
     utt.onend = () => {
       if (this.streamDone && !speechSynthesis.pending) {
-        this.clearTranscript();
-        this.state = "LISTENING";
-        this.setupRecognition();
-        this.notify();
+        this.returnToListening();
       }
     };
 
     utt.onerror = (e) => {
       if (e.error === "canceled") return;
       if (this.streamDone && !speechSynthesis.pending) {
-        this.clearTranscript();
-        this.state = "LISTENING";
-        this.setupRecognition();
-        this.notify();
+        this.returnToListening();
       }
     };
 
@@ -373,6 +415,14 @@ export class VoiceSession {
     this.teardownRecognition();
     this.teardownAnalyser();
     speechSynthesis.cancel();
+    if (this.doneTimer) {
+      clearTimeout(this.doneTimer);
+      this.doneTimer = null;
+    }
+    if (this.notifyTimer) {
+      clearTimeout(this.notifyTimer);
+      this.notifyTimer = null;
+    }
     if (this.micStream) {
       this.micStream.getTracks().forEach((t) => t.stop());
       this.micStream = null;
@@ -381,6 +431,7 @@ export class VoiceSession {
     this.isWarmingUp = false;
     this.spokenIndex = 0;
     this.streamDone = false;
+    this.notifyPending = false;
     this.clearTranscript();
   }
 
@@ -417,7 +468,7 @@ export class VoiceSession {
   addToken(token: string) {
     if (this.state !== "PROCESSING" && this.state !== "SPEAKING") return;
     this.aiResponse += token;
-    this.notify();
+    this.throttledNotify();
 
     const unspoken = this.aiResponse.slice(this.spokenIndex);
     const match = VoiceSession.SENTENCE_END.exec(unspoken);
@@ -441,10 +492,16 @@ export class VoiceSession {
       this.spokenIndex = this.aiResponse.length;
       this.speakSentence(remaining, this.state === "PROCESSING");
     } else if (this.state === "PROCESSING") {
-      this.setupRecognition();
-      this.state = "LISTENING";
-      this.notify();
+      this.returnToListening();
+      return;
     }
+
+    // Fix 7: Safety net — if TTS callbacks never fire, force return after 10s
+    this.doneTimer = setTimeout(() => {
+      if (this.state === "SPEAKING" || this.state === "PROCESSING") {
+        this.returnToListening();
+      }
+    }, 10_000);
   }
 
   handleError(message: string) {
@@ -458,6 +515,10 @@ export class VoiceSession {
     this.aiResponse = "";
     this.spokenIndex = 0;
     this.streamDone = false;
+    if (this.doneTimer) {
+      clearTimeout(this.doneTimer);
+      this.doneTimer = null;
+    }
     this.clearTranscript();
     this.state = "PROCESSING";
     this.notify();
