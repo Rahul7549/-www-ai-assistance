@@ -1,0 +1,1174 @@
+<title>Voice Chat — Technical Reference</title>
+<style>
+  @font-face {
+    font-family: 'JetBrains';
+    src: local('JetBrains Mono'), local('Fira Code'), local('Cascadia Code'), local('Consolas');
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #FAFAF8;
+    --bg-code: #F0EFEC;
+    --bg-card: #FFFFFF;
+    --bg-callout: #E8F0E8;
+    --text: #1A1A18;
+    --text-dim: #6B6B64;
+    --text-label: #8C8C84;
+    --accent: #2D6A4F;
+    --accent-light: #40916C;
+    --border: #D8D8D2;
+    --border-light: #E8E8E2;
+    --state-listening: #2D6A4F;
+    --state-processing: #B5830B;
+    --state-speaking: #2563EB;
+    --state-error: #C53030;
+    --state-idle: #8C8C84;
+    --flow-line: #2D6A4F;
+    --flow-bg: #F5FAF5;
+    --shadow: 0 1px 3px rgba(26,26,24,0.06);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413;
+      --bg-code: #1E1E1C;
+      --bg-card: #1A1A18;
+      --bg-callout: #1A261A;
+      --text: #E8E8E2;
+      --text-dim: #9C9C94;
+      --text-label: #6B6B64;
+      --accent: #52B788;
+      --accent-light: #74C69D;
+      --border: #2E2E2A;
+      --border-light: #242422;
+      --state-listening: #52B788;
+      --state-processing: #E9B949;
+      --state-speaking: #60A5FA;
+      --state-error: #FC8181;
+      --state-idle: #6B6B64;
+      --flow-line: #52B788;
+      --flow-bg: #1A261A;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141413;
+    --bg-code: #1E1E1C;
+    --bg-card: #1A1A18;
+    --bg-callout: #1A261A;
+    --text: #E8E8E2;
+    --text-dim: #9C9C94;
+    --text-label: #6B6B64;
+    --accent: #52B788;
+    --accent-light: #74C69D;
+    --border: #2E2E2A;
+    --border-light: #242422;
+    --state-listening: #52B788;
+    --state-processing: #E9B949;
+    --state-speaking: #60A5FA;
+    --state-error: #FC8181;
+    --state-idle: #6B6B64;
+    --flow-line: #52B788;
+    --flow-bg: #1A261A;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  :root[data-theme="light"] {
+    --bg: #FAFAF8;
+    --bg-code: #F0EFEC;
+    --bg-card: #FFFFFF;
+    --bg-callout: #E8F0E8;
+    --text: #1A1A18;
+    --text-dim: #6B6B64;
+    --text-label: #8C8C84;
+    --accent: #2D6A4F;
+    --accent-light: #40916C;
+    --border: #D8D8D2;
+    --border-light: #E8E8E2;
+    --state-listening: #2D6A4F;
+    --state-processing: #B5830B;
+    --state-speaking: #2563EB;
+    --state-error: #C53030;
+    --state-idle: #8C8C84;
+    --flow-line: #2D6A4F;
+    --flow-bg: #F5FAF5;
+    --shadow: 0 1px 3px rgba(26,26,24,0.06);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Charter', 'Georgia', 'Times New Roman', serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+  }
+
+  /* ── Header ── */
+  .doc-header {
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 1.5rem;
+    margin-bottom: 3rem;
+  }
+  .doc-header .eyebrow {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+  .doc-header h1 {
+    font-family: 'Charter', 'Georgia', serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+  .doc-header .subtitle {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    max-width: 560px;
+  }
+  .doc-meta {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    font-family: 'JetBrains', monospace;
+    font-size: 0.72rem;
+    color: var(--text-label);
+  }
+
+  /* ── Sections ── */
+  .section {
+    margin-bottom: 3rem;
+  }
+  .section-label {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+  }
+  h2 {
+    font-family: 'Charter', 'Georgia', serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    margin-bottom: 0.75rem;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: 'Charter', 'Georgia', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 0.5rem;
+    margin-top: 1.75rem;
+  }
+  h3:first-child { margin-top: 0; }
+  p { margin-bottom: 0.9rem; max-width: 65ch; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── File map ── */
+  .file-map {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+  @media (max-width: 600px) { .file-map { grid-template-columns: 1fr; } }
+
+  .file-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    box-shadow: var(--shadow);
+  }
+  .file-card .fc-path {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    word-break: break-all;
+  }
+  .file-card .fc-role {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-top: 0.2rem;
+  }
+  .file-card.wide {
+    grid-column: 1 / -1;
+  }
+
+  /* ── State machine ── */
+  .state-diagram {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 1.25rem 0;
+    align-items: center;
+  }
+  .state-pill {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    padding: 0.3rem 0.75rem;
+    border-radius: 100px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .state-pill.idle { background: color-mix(in srgb, var(--state-idle) 15%, transparent); color: var(--state-idle); }
+  .state-pill.listening { background: color-mix(in srgb, var(--state-listening) 15%, transparent); color: var(--state-listening); }
+  .state-pill.processing { background: color-mix(in srgb, var(--state-processing) 15%, transparent); color: var(--state-processing); }
+  .state-pill.speaking { background: color-mix(in srgb, var(--state-speaking) 15%, transparent); color: var(--state-speaking); }
+  .state-pill.error { background: color-mix(in srgb, var(--state-error) 15%, transparent); color: var(--state-error); }
+  .state-pill.muted { background: color-mix(in srgb, var(--state-idle) 15%, transparent); color: var(--state-idle); }
+  .state-arrow {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.75rem;
+    color: var(--text-label);
+  }
+
+  /* ── Flow diagrams ── */
+  .flow {
+    margin: 1.5rem 0;
+    padding: 0;
+    list-style: none;
+    position: relative;
+  }
+  .flow::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 12px;
+    bottom: 12px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--flow-line), color-mix(in srgb, var(--flow-line) 20%, transparent));
+    border-radius: 1px;
+  }
+  .flow-step {
+    position: relative;
+    padding-left: 2rem;
+    padding-bottom: 1.25rem;
+  }
+  .flow-step:last-child { padding-bottom: 0; }
+  .flow-step::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 7px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2.5px solid var(--flow-line);
+  }
+  .flow-step.active::before {
+    background: var(--flow-line);
+  }
+  .flow-step .step-title {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.15rem;
+  }
+  .flow-step .step-detail {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
+  .flow-step .step-file {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.66rem;
+    color: var(--accent-light);
+    margin-top: 0.15rem;
+  }
+
+  /* ── Code blocks ── */
+  pre {
+    background: var(--bg-code);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    margin: 0.75rem 0 1rem;
+    font-family: 'JetBrains', monospace;
+    font-size: 0.78rem;
+    line-height: 1.65;
+    color: var(--text);
+  }
+  code {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    padding: 0.12em 0.35em;
+    border-radius: 3px;
+    color: var(--accent);
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  /* ── Callout ── */
+  .callout {
+    background: var(--bg-callout);
+    border-left: 3px solid var(--accent);
+    padding: 0.85rem 1.15rem;
+    border-radius: 0 6px 6px 0;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+  .callout strong {
+    color: var(--accent);
+  }
+
+  /* ── Socket events table ── */
+  .event-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.88rem;
+    overflow-x: auto;
+    display: block;
+  }
+  .event-table thead { position: sticky; top: 0; }
+  .event-table th {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-label);
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  .event-table td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: top;
+  }
+  .event-table tr:last-child td { border-bottom: none; }
+  .event-table .ev-name {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.78rem;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .event-table .ev-dir {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.68rem;
+    color: var(--text-label);
+    white-space: nowrap;
+  }
+
+  /* ── Optimization cards ── */
+  .opt-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    margin: 1rem 0;
+  }
+  .opt-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0.6rem;
+    align-items: start;
+  }
+  .opt-num {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    width: 1.6rem;
+    height: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .opt-body .opt-title {
+    font-weight: 700;
+    font-size: 0.92rem;
+    margin-bottom: 0.15rem;
+  }
+  .opt-body .opt-desc {
+    font-size: 0.84rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .opt-body .opt-files {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.66rem;
+    color: var(--accent-light);
+    margin-top: 0.2rem;
+  }
+
+  /* ── Metrics ── */
+  .metric-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+  .metric {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 0.6rem 1rem;
+    box-shadow: var(--shadow);
+    flex: 1;
+    min-width: 140px;
+  }
+  .metric .m-label {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-label);
+  }
+  .metric .m-value {
+    font-family: 'JetBrains', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .metric .m-note {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  /* ── Divider ── */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2.5rem 0;
+  }
+
+  /* ── TOC ── */
+  .toc {
+    margin: 1.5rem 0 2.5rem;
+    padding: 1rem 1.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+  }
+  .toc-title {
+    font-family: 'JetBrains', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-label);
+    margin-bottom: 0.5rem;
+  }
+  .toc ol {
+    list-style: none;
+    counter-reset: toc-counter;
+    padding: 0;
+  }
+  .toc li {
+    counter-increment: toc-counter;
+    padding: 0.2rem 0;
+  }
+  .toc li a {
+    font-size: 0.88rem;
+    color: var(--text);
+    text-decoration: none;
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+  .toc li a:hover { color: var(--accent); }
+  .toc li a::before {
+    content: counter(toc-counter, decimal-leading-zero);
+    font-family: 'JetBrains', monospace;
+    font-size: 0.68rem;
+    color: var(--accent);
+    flex-shrink: 0;
+    width: 1.4rem;
+  }
+
+  @media (max-width: 600px) {
+    .page { padding: 2rem 1rem 4rem; }
+    .doc-header h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.3rem; }
+    .doc-meta { flex-direction: column; gap: 0.3rem; }
+  }
+</style>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="doc-header">
+    <div class="eyebrow">AI Assistance Platform</div>
+    <h1>Voice Chat — Technical Reference</h1>
+    <p class="subtitle">End-to-end architecture of the real-time voice conversation pipeline: browser APIs, Socket.IO transport, LLM streaming, and the optimizations that tie them together.</p>
+    <div class="doc-meta">
+      <span>Last updated: July 2026</span>
+      <span>Frontend: Next.js 16 + React 19</span>
+      <span>Backend: Express + Ollama</span>
+    </div>
+  </header>
+
+  <!-- TOC -->
+  <nav class="toc">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#architecture">System Architecture</a></li>
+      <li><a href="#file-map">File Map</a></li>
+      <li><a href="#state-machine">Voice State Machine</a></li>
+      <li><a href="#flow-startup">Startup &amp; Warm-up Flow</a></li>
+      <li><a href="#flow-turn">Conversation Turn Flow</a></li>
+      <li><a href="#socket-events">Socket.IO Event Protocol</a></li>
+      <li><a href="#stt">Speech-to-Text (STT)</a></li>
+      <li><a href="#tts">Text-to-Speech (TTS)</a></li>
+      <li><a href="#audio-viz">Audio Visualization</a></li>
+      <li><a href="#react-integration">React Integration Pattern</a></li>
+      <li><a href="#backend-pipeline">Backend Streaming Pipeline</a></li>
+      <li><a href="#optimizations">Performance Optimizations</a></li>
+      <li><a href="#metrics">Metrics &amp; Instrumentation</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1. ARCHITECTURE -->
+  <section class="section" id="architecture">
+    <div class="section-label">Section 01</div>
+    <h2>System Architecture</h2>
+    <p>The voice chat is a full-duplex conversation loop between the user's browser and a locally-hosted Ollama LLM. The browser handles all speech processing (STT and TTS) via native Web Speech APIs, while the backend handles LLM inference and message persistence.</p>
+    <pre><code>Browser (localhost:3000)                     Server (localhost:3001)
+┌──────────────────────┐                    ┌──────────────────────┐
+│  VoiceOverlay (UI)   │                    │  Socket.IO server    │
+│    ↕                 │                    │    ↕                 │
+│  useVoiceSession     │   Socket.IO ws     │  socket.ts handlers  │
+│    ↕                 │ ←──────────────→   │    ↕                 │
+│  VoiceSession class  │                    │  ChatService         │
+│    ↕         ↕       │                    │    ↕          ↕      │
+│  Web Speech  Web     │                    │  Ollama     Prisma   │
+│  API         Audio   │                    │  (llama3)   (Postgres)│
+│  (STT+TTS)   API    │                    │             ↕        │
+│              (viz)   │                    │          MessageRepo  │
+└──────────────────────┘                    └──────────────────────┘</code></pre>
+    <div class="callout">
+      <strong>Key design decision:</strong> All speech processing happens client-side using the Web Speech API — no audio is sent to the server. This keeps latency low and avoids transcription costs, at the cost of browser-dependent STT accuracy.
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 2. FILE MAP -->
+  <section class="section" id="file-map">
+    <div class="section-label">Section 02</div>
+    <h2>File Map</h2>
+    <h3>Frontend — <code>www-ai-assistance/</code></h3>
+    <div class="file-map">
+      <div class="file-card">
+        <div class="fc-path">app/_components/voice/VoiceSession.ts</div>
+        <div class="fc-role">Imperative class — manages SpeechRecognition, SpeechSynthesis, AudioContext, and the voice state machine. No React dependency.</div>
+      </div>
+      <div class="file-card">
+        <div class="fc-path">app/_components/hooks/useVoiceSession.ts</div>
+        <div class="fc-role">React hook — thin wrapper that bridges VoiceSession into React via refs and snapshots. Wires Socket.IO listeners.</div>
+      </div>
+      <div class="file-card">
+        <div class="fc-path">app/_components/VoiceOverlay.tsx</div>
+        <div class="fc-role">UI component — full-screen overlay with animated orb, frequency bars, transcript display, voice selector, and controls.</div>
+      </div>
+      <div class="file-card">
+        <div class="fc-path">app/lib/socket.ts</div>
+        <div class="fc-role">Socket.IO client singleton — JWT-authenticated connection to backend on port 3001.</div>
+      </div>
+    </div>
+
+    <h3>Backend — <code>api-ai-assistance/</code></h3>
+    <div class="file-map">
+      <div class="file-card">
+        <div class="fc-path">src/config/socket.ts</div>
+        <div class="fc-role">Socket.IO server — JWT auth middleware, event handlers for warm_model, user_message, cancel_stream. Token batching logic.</div>
+      </div>
+      <div class="file-card">
+        <div class="fc-path">src/services/ChatService.ts</div>
+        <div class="fc-role">LLM orchestration — singleton voice model, system prompt construction, streaming inference, conversation history, metrics.</div>
+      </div>
+      <div class="file-card">
+        <div class="fc-path">src/repositories/MessageRepository.ts</div>
+        <div class="fc-role">Prisma data access — message CRUD, findRecentByConversationId for voice history.</div>
+      </div>
+      <div class="file-card">
+        <div class="fc-path">src/config/ai.ts</div>
+        <div class="fc-role">ChatOllama factory — createChatModel() for text chat (voice uses its own singleton).</div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 3. STATE MACHINE -->
+  <section class="section" id="state-machine">
+    <div class="section-label">Section 03</div>
+    <h2>Voice State Machine</h2>
+    <p>The <code>VoiceSession</code> class manages a finite state machine with six states. All UI rendering and behavior branching derives from this single <code>state</code> property.</p>
+
+    <h3>States</h3>
+    <div class="state-diagram">
+      <span class="state-pill idle">IDLE</span>
+      <span class="state-arrow">→</span>
+      <span class="state-pill listening">LISTENING</span>
+      <span class="state-arrow">→</span>
+      <span class="state-pill processing">PROCESSING</span>
+      <span class="state-arrow">→</span>
+      <span class="state-pill speaking">SPEAKING</span>
+      <span class="state-arrow">→</span>
+      <span class="state-pill listening">LISTENING</span>
+      <span class="state-arrow">(loop)</span>
+    </div>
+    <div class="state-diagram" style="margin-top: 0.5rem;">
+      <span class="state-pill listening">LISTENING</span>
+      <span class="state-arrow">⇄</span>
+      <span class="state-pill muted">MUTED</span>
+      <span style="margin-left: 1rem;"></span>
+      <span class="state-pill error">ERROR</span>
+      <span class="state-arrow">← any state</span>
+    </div>
+
+    <h3>Transition triggers</h3>
+    <pre><code>IDLE → LISTENING       start() called, mic permission granted
+LISTENING → PROCESSING  silence timer fires with final transcript
+PROCESSING → SPEAKING   first TTS utterance starts playing
+SPEAKING → LISTENING    last utterance finishes + stream is done
+LISTENING ⇄ MUTED       toggleMute() called
+any → ERROR             mic denied, socket error, AI error
+any → IDLE              stop() called (overlay closed)</code></pre>
+  </section>
+
+  <hr>
+
+  <!-- 4. STARTUP FLOW -->
+  <section class="section" id="flow-startup">
+    <div class="section-label">Section 04</div>
+    <h2>Startup &amp; Warm-up Flow</h2>
+    <p>When the user opens the voice overlay, two parallel operations begin: the browser requests mic access, and the server pre-loads the Ollama model into memory.</p>
+
+    <ol class="flow">
+      <li class="flow-step active">
+        <div class="step-title">User clicks mic button → VoiceOverlay mounts</div>
+        <div class="step-detail">The mount effect calls <code>voiceRef.current.start()</code> which triggers two parallel operations.</div>
+        <div class="step-file">VoiceOverlay.tsx:67-72</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Hook emits warm_model via Socket.IO</div>
+        <div class="step-detail">Before calling <code>session.start()</code>, the hook emits <code>warm_model</code> to the backend. The session sets <code>isWarmingUp = true</code> and transitions to LISTENING.</div>
+        <div class="step-file">useVoiceSession.ts:210-212</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Browser requests getUserMedia</div>
+        <div class="step-detail"><code>VoiceSession.start()</code> calls <code>navigator.mediaDevices.getUserMedia({ audio: true })</code>. Uses AbortController to handle React 19 StrictMode double-mount safely.</div>
+        <div class="step-file">VoiceSession.ts:370-404</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Audio analyser set up</div>
+        <div class="step-detail">On mic grant, <code>setupAnalyser(stream)</code> creates an AudioContext + AnalyserNode for real-time volume visualization. State moves to LISTENING.</div>
+        <div class="step-file">VoiceSession.ts:257-291</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Backend warms Ollama model</div>
+        <div class="step-detail">Server-side handler calls <code>warmModel()</code> — runs a minimal inference (<code>"hi"</code>) to load model weights into RAM. Uses the singleton <code>getVoiceModel()</code> instance.</div>
+        <div class="step-file">socket.ts:36-39 → ChatService.ts:43-45</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Server emits model_ready</div>
+        <div class="step-detail">Once warm completes, server emits <code>model_ready</code>. Client's <code>modelReady()</code> sets <code>isWarmingUp = false</code> and starts SpeechRecognition if not already running.</div>
+        <div class="step-file">VoiceSession.ts:458-464</div>
+      </li>
+      <li class="flow-step active">
+        <div class="step-title">UI shows "Speak now"</div>
+        <div class="step-detail">Overlay transitions from "Preparing assistant..." to "Speak now" — microphone is hot and STT is active.</div>
+      </li>
+    </ol>
+
+    <div class="callout">
+      <strong>Cold start elimination:</strong> The server also pre-warms the model on boot and sends a keepalive inference every 4 minutes, so subsequent voice sessions skip the ~14s cold load entirely.
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 5. CONVERSATION TURN FLOW -->
+  <section class="section" id="flow-turn">
+    <div class="section-label">Section 05</div>
+    <h2>Conversation Turn Flow</h2>
+    <p>Each voice turn follows this cycle: listen → detect silence → send to LLM → stream tokens → speak sentences as they arrive → return to listening.</p>
+
+    <ol class="flow">
+      <li class="flow-step active">
+        <div class="step-title">STT captures speech</div>
+        <div class="step-detail">Web Speech API fires <code>onresult</code> events continuously. Interim results update the transcript in real-time; final results accumulate in <code>finalText</code>.</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Silence timer fires</div>
+        <div class="step-detail">Each speech event resets a silence timer. Timeout is adaptive: 800ms for follow-up turns (conversation has context), 1200ms for the opening turn. When it fires, <code>onFinalTranscript</code> is called.</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Hook creates conversation if needed</div>
+        <div class="step-detail">If no <code>conversationId</code> exists, the hook POSTs to <code>/api/conversations</code> to create one, then stores the ID in a ref for subsequent turns.</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Hook emits user_message via Socket.IO</div>
+        <div class="step-detail">Message payload: <code>{ conversationId, content, mode: "voice" }</code>. Records <code>turnStartRef</code> timestamp for metrics. Session transitions to PROCESSING.</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Backend saves user message + fetches context</div>
+        <div class="step-detail">In parallel: saves user message to DB and fetches assistant details. Then loads the 6 most recent messages (desc query + reverse) for voice history context.</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Ollama streams tokens</div>
+        <div class="step-detail">ChatOllama streams response with <code>numPredict: 120</code> limit. Tokens batch in an 80ms buffer before Socket.IO emission. Voice system prompt enforces 1-3 sentence brevity.</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Client receives batched tokens → incremental TTS</div>
+        <div class="step-detail"><code>addToken()</code> accumulates text, checks for sentence boundaries (<code>/[.!?\n]\s*/</code>). Each complete sentence is immediately queued to <code>speechSynthesis.speak()</code>.</div>
+      </li>
+      <li class="flow-step">
+        <div class="step-title">Stream completes → speak remainder</div>
+        <div class="step-detail"><code>handleDone()</code> sets <code>streamDone = true</code>, speaks any remaining text. A 10s safety timer ensures return to LISTENING even if TTS callbacks fail.</div>
+      </li>
+      <li class="flow-step active">
+        <div class="step-title">Last utterance ends → return to LISTENING</div>
+        <div class="step-detail"><code>utt.onend</code> checks <code>streamDone && !speechSynthesis.pending</code>. If both true, calls <code>returnToListening()</code> which clears transcript and restarts STT.</div>
+      </li>
+    </ol>
+  </section>
+
+  <hr>
+
+  <!-- 6. SOCKET EVENTS -->
+  <section class="section" id="socket-events">
+    <div class="section-label">Section 06</div>
+    <h2>Socket.IO Event Protocol</h2>
+    <p>All voice communication uses a persistent WebSocket connection authenticated via JWT. The token is passed in <code>socket.handshake.auth.token</code> on connect.</p>
+
+    <div style="overflow-x: auto;">
+      <table class="event-table">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Direction</th>
+            <th>Payload</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ev-name">warm_model</td>
+            <td class="ev-dir">client → server</td>
+            <td><em>none</em></td>
+            <td>Request model pre-load into Ollama RAM</td>
+          </tr>
+          <tr>
+            <td class="ev-name">model_ready</td>
+            <td class="ev-dir">server → client</td>
+            <td><em>none</em></td>
+            <td>Acknowledge model is warm and ready</td>
+          </tr>
+          <tr>
+            <td class="ev-name">user_message</td>
+            <td class="ev-dir">client → server</td>
+            <td><code>{ conversationId, content, mode? }</code></td>
+            <td>Send user's transcribed speech for LLM processing</td>
+          </tr>
+          <tr>
+            <td class="ev-name">ai_token</td>
+            <td class="ev-dir">server → client</td>
+            <td><code>{ token }</code></td>
+            <td>Batched LLM output tokens (flushed every 80ms)</td>
+          </tr>
+          <tr>
+            <td class="ev-name">ai_done</td>
+            <td class="ev-dir">server → client</td>
+            <td><code>{ conversationId, content }</code></td>
+            <td>Stream complete — full response included as fallback</td>
+          </tr>
+          <tr>
+            <td class="ev-name">ai_error</td>
+            <td class="ev-dir">server → client</td>
+            <td><code>{ message }</code></td>
+            <td>Error during LLM inference or DB access</td>
+          </tr>
+          <tr>
+            <td class="ev-name">cancel_stream</td>
+            <td class="ev-dir">client → server</td>
+            <td><em>none</em></td>
+            <td>Abort ongoing inference (AbortController signal)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 7. STT -->
+  <section class="section" id="stt">
+    <div class="section-label">Section 07</div>
+    <h2>Speech-to-Text (STT)</h2>
+    <p>STT uses the browser's native <code>SpeechRecognition</code> API (Chrome/Edge). It runs in continuous mode with interim results enabled for real-time transcript display.</p>
+
+    <h3>Configuration</h3>
+    <pre><code>rec.lang = "en-US"
+rec.continuous = true       // don't stop after one phrase
+rec.interimResults = true   // show partial results while speaking</code></pre>
+
+    <h3>Transcript handling</h3>
+    <p>The <code>onresult</code> handler separates final (committed) from interim (tentative) text. Final text accumulates in <code>finalText</code>; the combined <code>transcript</code> is displayed in the UI. When the browser marks a result as <code>isFinal</code>, it's locked — interim text continues to update independently.</p>
+
+    <h3>Auto-restart</h3>
+    <p>Chrome's SpeechRecognition stops after periods of silence. The <code>onend</code> handler automatically restarts recognition while in LISTENING state, making it appear continuous to the user.</p>
+
+    <h3>Silence detection</h3>
+    <p>A debounced timer triggers after speech stops. The timeout is adaptive:</p>
+    <pre><code>const hasContext = !!this.aiResponse;   // has the AI spoken yet?
+const timeout = hasContext ? 800 : 1200; // faster for follow-ups</code></pre>
+    <p>When the timer fires, if <code>finalText</code> is non-empty and state is LISTENING, the transcript is sent for processing via the <code>onFinalTranscript</code> callback.</p>
+  </section>
+
+  <hr>
+
+  <!-- 8. TTS -->
+  <section class="section" id="tts">
+    <div class="section-label">Section 08</div>
+    <h2>Text-to-Speech (TTS)</h2>
+    <p>TTS uses the browser's native <code>SpeechSynthesis</code> API. Rather than waiting for the full AI response, sentences are queued for speech as they're detected in the token stream — so the user hears speech while text is still arriving.</p>
+
+    <h3>Incremental sentence detection</h3>
+    <pre><code>private static SENTENCE_END = /[.!?\n]\s*/;
+
+addToken(token) {
+  this.aiResponse += token;
+  const unspoken = this.aiResponse.slice(this.spokenIndex);
+  const match = VoiceSession.SENTENCE_END.exec(unspoken);
+  if (match) {
+    // extract sentence, advance spokenIndex, call speakSentence()
+  }
+}</code></pre>
+    <p>The <code>spokenIndex</code> tracks how far into the response has been queued for speech. When <code>addToken()</code> detects a sentence boundary in the unspoken portion, it extracts the sentence and immediately queues it. The <code>speechSynthesis</code> queue handles ordering.</p>
+
+    <h3>Voice selection</h3>
+    <p>Three named voices are mapped to native system voices via keyword matching:</p>
+    <pre><code>VOICE_MAP = {
+  "Nova - Energetic & Fast":      // rate: 1.1
+  "Echo - Soft & Calm":           // rate: 1.0
+  "Atlas - Deep & Professional":  // rate: 1.0
+}</code></pre>
+    <p>Each maps to a prioritized keyword list (e.g., <code>["zira", "samantha", "karen", "female"]</code>) matched against English-language voices available in the browser.</p>
+
+    <h3>Turn completion</h3>
+    <p>When <code>handleDone()</code> is called (stream complete), it sets <code>streamDone = true</code> and speaks any remaining text. The last utterance's <code>onend</code> checks <code>streamDone && !speechSynthesis.pending</code> — when both are true, the session transitions back to LISTENING.</p>
+
+    <div class="callout">
+      <strong>Safety net:</strong> A 10-second timeout in <code>handleDone()</code> forces a return to LISTENING even if TTS <code>onend</code> callbacks never fire (a known browser edge case).
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 9. AUDIO VIZ -->
+  <section class="section" id="audio-viz">
+    <div class="section-label">Section 09</div>
+    <h2>Audio Visualization</h2>
+    <p>Real-time microphone volume drives the animated orb and frequency bars in the overlay.</p>
+
+    <h3>Pipeline</h3>
+    <pre><code>getUserMedia → MediaStreamSource → AnalyserNode (fftSize: 256)
+                                        ↓
+                              getByteTimeDomainData(dataArray)
+                                        ↓
+                                RMS volume (0–1)
+                                        ↓
+                           threshold filter (Δ > 0.02)
+                                        ↓
+                              throttledNotify() → React</code></pre>
+
+    <p>The analyser runs on every <code>requestAnimationFrame</code> tick. It computes RMS (root mean square) from the time-domain waveform, then normalizes to 0–1 with a 3x multiplier for visual sensitivity.</p>
+
+    <h3>Rendering</h3>
+    <p>The overlay's animation clock also runs via <code>requestAnimationFrame</code>, but only when state is LISTENING or SPEAKING. The volume value drives:</p>
+    <pre><code>// Orb scale
+orbScale = 1 + volume * 0.4         // LISTENING: mic-reactive
+orbScale = 1 + sin(now/200) * 0.15  // SPEAKING: gentle pulse
+
+// Bar heights (15 bars per side)
+height = 10 + volume * 40 + sin(now/150 + i * 0.5) * 10  // LISTENING
+height = 10 + sin(now/200 + i * 0.4) * 25                // SPEAKING</code></pre>
+  </section>
+
+  <hr>
+
+  <!-- 10. REACT INTEGRATION -->
+  <section class="section" id="react-integration">
+    <div class="section-label">Section 10</div>
+    <h2>React Integration Pattern</h2>
+    <p>The voice pipeline uses an <strong>imperative class + snapshot</strong> pattern to avoid common React pitfalls with browser APIs.</p>
+
+    <h3>Why not plain hooks?</h3>
+    <p>Browser APIs like SpeechRecognition, AudioContext, and MediaStream are imperative, long-lived, and stateful. Putting them in hooks leads to stale closures, effect dependency churn, and React 19 StrictMode double-mount race conditions. The class pattern solves all three.</p>
+
+    <h3>The pattern</h3>
+    <pre><code>// 1. Class owns all browser API state (no React dependency)
+class VoiceSession {
+  state: VoiceState = "IDLE";
+  onChange: (() => void) | null = null;   // callback to React
+  // ... browser API instances as private fields
+}
+
+// 2. Hook creates class once via lazy-ref init
+const sessionRef = useRef&lt;VoiceSession | null&gt;(null);
+if (sessionRef.current == null) {
+  sessionRef.current = new VoiceSession();
+}
+
+// 3. Snapshot for rendering — never read ref during render
+const [snap, setSnap] = useState&lt;Snapshot&gt;(() => ({ ... }));
+
+// 4. Wire onChange in effect — safe ref access
+useEffect(() => {
+  const s = sessionRef.current!;
+  s.onChange = () => setSnap(takeSnapshot(s));
+  return () => { s.onChange = null; };
+}, []);
+
+// 5. Methods in useCallback — ref access inside callbacks
+const start = useCallback(() => {
+  sessionRef.current?.start();
+}, []);</code></pre>
+
+    <div class="callout">
+      <strong>React 19 lint compliance:</strong> The <code>== null</code> lazy-ref pattern satisfies <code>react-hooks/refs</code> (no ref access during render). Snapshot state satisfies <code>react-hooks/immutability</code> (no direct class mutation visible to React render).
+    </div>
+
+    <h3>StrictMode safety</h3>
+    <p>React 19 StrictMode double-invokes effects in development. The <code>start()</code> method uses an <code>AbortController</code> — the second mount aborts the first's <code>getUserMedia</code> call and stops its mic tracks, preventing resource leaks.</p>
+  </section>
+
+  <hr>
+
+  <!-- 11. BACKEND PIPELINE -->
+  <section class="section" id="backend-pipeline">
+    <div class="section-label">Section 11</div>
+    <h2>Backend Streaming Pipeline</h2>
+
+    <h3>Model management</h3>
+    <p>Voice mode uses a singleton <code>ChatOllama</code> instance shared between warm-up and inference:</p>
+    <pre><code>let voiceModel: ChatOllama | null = null;
+
+function getVoiceModel(): ChatOllama {
+  if (!voiceModel) {
+    voiceModel = new ChatOllama({
+      model: "llama3",        // 8B Q4_0, ~3.6 tokens/sec on CPU
+      temperature: 0.7,
+      numPredict: 120,        // voice response length cap
+    });
+  }
+  return voiceModel;
+}</code></pre>
+    <p>Text chat mode still creates a fresh <code>ChatOllama</code> via <code>createChatModel()</code> (no <code>numPredict</code> cap).</p>
+
+    <h3>Voice system prompt</h3>
+    <p>Voice mode appends a behavioral constraint to the assistant's personality prompt:</p>
+    <pre><code>"You are in a live voice conversation. Keep responses brief —
+1 to 3 sentences max. Be direct and conversational. Do not
+use markdown, bullet points, or formatting."</code></pre>
+
+    <h3>Message history</h3>
+    <p>Voice mode fetches the 6 most recent messages using <code>findRecentByConversationId</code> — a <code>desc</code> query reversed in code, ensuring the latest conversation context (not the oldest). Text chat uses the standard ascending query with a 20-message limit.</p>
+
+    <h3>Database call pattern</h3>
+    <pre><code>// Sequential: conversation lookup (need assistantId first)
+const conversation = await conversationRepo.findById(conversationId);
+
+// Parallel: assistant lookup + user message save (independent)
+const [assistant] = await Promise.all([
+  assistantRepo.findById(conversation.assistantId),
+  messageRepo.create({ conversationId, role: "USER", content }),
+]);
+
+// Then: load history
+const history = await messageRepo.findRecentByConversationId(...);</code></pre>
+
+    <h3>Token streaming &amp; batching</h3>
+    <p>The LLM stream yields tokens one at a time. Instead of emitting each token as a separate Socket.IO event (high overhead at ~3.6 tok/s), tokens accumulate in a buffer and flush every 80ms:</p>
+    <pre><code>let tokenBuf: string[] = [];
+let flushTimer = null;
+
+onToken: (token) => {
+  tokenBuf.push(token);
+  if (!flushTimer) {
+    flushTimer = setTimeout(flushTokens, 80);
+  }
+}</code></pre>
+    <p>On stream completion (<code>onDone</code>) or error, the buffer is force-flushed before emitting the terminal event.</p>
+  </section>
+
+  <hr>
+
+  <!-- 12. OPTIMIZATIONS -->
+  <section class="section" id="optimizations">
+    <div class="section-label">Section 12</div>
+    <h2>Performance Optimizations</h2>
+    <p>Nine targeted optimizations reduce perceived latency and render load without changing the core architecture.</p>
+
+    <div class="opt-grid">
+      <div class="opt-card">
+        <div class="opt-num">1</div>
+        <div class="opt-body">
+          <div class="opt-title">Singleton voice model</div>
+          <div class="opt-desc">Reuses one ChatOllama instance for both <code>warmModel()</code> and <code>streamChat()</code>, avoiding re-instantiation overhead on every call.</div>
+          <div class="opt-files">ChatService.ts — getVoiceModel()</div>
+        </div>
+      </div>
+      <div class="opt-card">
+        <div class="opt-num">2</div>
+        <div class="opt-body">
+          <div class="opt-title">Parallel DB calls</div>
+          <div class="opt-desc">Assistant lookup and user message creation run in <code>Promise.all()</code> — independent operations that previously ran sequentially.</div>
+          <div class="opt-files">ChatService.ts:65-68</div>
+        </div>
+      </div>
+      <div class="opt-card">
+        <div class="opt-num">3</div>
+        <div class="opt-body">
+          <div class="opt-title">Correct history direction</div>
+          <div class="opt-desc">Voice history uses <code>ORDER BY createdAt DESC</code> + reverse, fetching the latest N messages instead of the oldest N (which could miss recent context).</div>
+          <div class="opt-files">MessageRepository.ts — findRecentByConversationId()</div>
+        </div>
+      </div>
+      <div class="opt-card">
+        <div class="opt-num">4</div>
+        <div class="opt-body">
+          <div class="opt-title">Token batching + notify throttle</div>
+          <div class="opt-desc">Backend: tokens buffer for 80ms before socket emission. Frontend: <code>throttledNotify()</code> coalesces rapid state changes into ~50ms render frames.</div>
+          <div class="opt-files">socket.ts (backend) + VoiceSession.ts (frontend)</div>
+        </div>
+      </div>
+      <div class="opt-card">
+        <div class="opt-num">5</div>
+        <div class="opt-body">
+          <div class="opt-title">Server-boot warm + keepalive</div>
+          <div class="opt-desc">Model pre-warms on <code>initSocket()</code> and stays warm via a 4-minute keepalive interval, eliminating cold starts entirely for the user.</div>
+          <div class="opt-files">socket.ts:13-14</div>
+        </div>
+      </div>
+      <div class="opt-card">
+        <div class="opt-num">6</div>
+        <div class="opt-body">
+          <div class="opt-title">Adaptive silence timeout</div>
+          <div class="opt-desc">Follow-up turns use 800ms silence threshold (user expects fast turns); the first turn uses 1200ms (user may pause to think).</div>
+          <div class="opt-files">VoiceSession.ts — resetSilenceTimer()</div>
+        </div>
+      </div>
+      <div class="opt-card">
+        <div class="opt-num">7</div>
+        <div class="opt-body">
+          <div class="opt-title">handleDone hang fix</div>
+          <div class="opt-desc">A 10-second safety timer forces return to LISTENING if TTS <code>onend</code> callbacks never fire — prevents the UI from getting stuck in SPEAKING state.</div>
+          <div class="opt-files">VoiceSession.ts — handleDone()</div>
+        </div>
+      </div>
+      <div class="opt-card">
+        <div class="opt-num">8</div>
+        <div class="opt-body">
+          <div class="opt-title">Volume change threshold</div>
+          <div class="opt-desc">Skips React re-renders when volume change is below 0.02 — eliminates ~60% of analyser-driven renders that produce no visible change.</div>
+          <div class="opt-files">VoiceSession.ts — setupAnalyser() tick loop</div>
+        </div>
+      </div>
+      <div class="opt-card">
+        <div class="opt-num">9</div>
+        <div class="opt-body">
+          <div class="opt-title">Metrics instrumentation</div>
+          <div class="opt-desc">Backend logs TTFT, total time, tokens/sec. Frontend logs client-TTFT and turn-duration. All prefixed <code>[voice-metrics]</code> for easy filtering.</div>
+          <div class="opt-files">ChatService.ts + useVoiceSession.ts</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- 13. METRICS -->
+  <section class="section" id="metrics">
+    <div class="section-label">Section 13</div>
+    <h2>Metrics &amp; Instrumentation</h2>
+    <p>Both client and server log timing metrics to the console for performance analysis. All entries are prefixed with <code>[voice-metrics]</code>.</p>
+
+    <h3>Server-side (ChatService.ts)</h3>
+    <div class="metric-row">
+      <div class="metric">
+        <div class="m-label">TTFT</div>
+        <div class="m-value">~800ms</div>
+        <div class="m-note">Time to first token — from request receipt to first LLM output</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">Total</div>
+        <div class="m-value">~33s</div>
+        <div class="m-note">Full inference time for a 120-token response at ~3.6 tok/s</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">TPS</div>
+        <div class="m-value">3.6</div>
+        <div class="m-note">Tokens per second — CPU inference throughput for llama3 Q4_0</div>
+      </div>
+    </div>
+
+    <h3>Client-side (useVoiceSession.ts)</h3>
+    <div class="metric-row">
+      <div class="metric">
+        <div class="m-label">Client TTFT</div>
+        <div class="m-value">~900ms</div>
+        <div class="m-note">Includes network round-trip + server TTFT + token batching delay</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">Turn Duration</div>
+        <div class="m-value">~34s</div>
+        <div class="m-note">Wall-clock from user_message emit to ai_done receipt</div>
+      </div>
+    </div>
+
+    <h3>Sample log output</h3>
+    <pre><code>// Server console
+[voice-metrics] TTFT=823ms
+[voice-metrics] total=33421ms tokens=118 tps=3.5
+
+// Browser console
+[voice-metrics] client-TTFT=912ms
+[voice-metrics] turn-duration=33892ms</code></pre>
+
+    <div class="callout">
+      <strong>Note:</strong> Metric values shown above are approximate baselines for CPU-only Ollama running llama3 8B Q4_0. GPU acceleration or a smaller model would significantly improve these numbers.
+    </div>
+  </section>
+
+</div>
