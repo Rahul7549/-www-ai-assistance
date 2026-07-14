@@ -24,3 +24,21 @@ Task 3: complete (commits 074bed7..dc4bb99, type check clean)
 Task 4: complete (commits dc4bb99..10cb542, type check clean)
 
 All 4 tasks complete. Chat message redesign done.
+
+# Voice Chat Implementation Progress
+
+Plan: docs/superpowers/plans/2026-07-13-voice-chat.md
+
+Task 1: complete (commits 85ebd1f..50d2f68, review clean after stale-closure fix)
+  Minor: manual browser testing deferred to Task 6
+Task 2: complete (commits 50d2f68..277cd36, review clean)
+  Minor: setTimeout for loadVoices to satisfy ESLint — behavior preserved
+Task 3: complete (commits 277cd36..01798a6, review clean)
+Task 4: complete (commits 01798a6..7c6a57d, review clean)
+  Minor: barge-in TTS cancel is implicit via speak() — add explicit cancel in Task 6
+Task 5: complete (commits 7c6a57d..8f98145, review clean)
+  Minor: transcript.replace for interim text could mismatch; RAF animation perf acceptable
+Task 6: complete (commits 8f98145..3cb6fa2, review clean)
+  Note: barge-in fix applied, all voice files lint clean
+
+All 6 tasks complete. Voice chat feature implemented.
