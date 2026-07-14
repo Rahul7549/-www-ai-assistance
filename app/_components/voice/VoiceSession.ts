@@ -69,6 +69,7 @@ export class VoiceSession {
   error: string | null = null;
   selectedVoice = "Nova - Energetic & Fast";
   voices: VoiceOption[] = [];
+  isWarmingUp = false;
 
   onChange: (() => void) | null = null;
   onFinalTranscript: ((text: string) => void) | null = null;
@@ -83,6 +84,20 @@ export class VoiceSession {
   private startAbort: AbortController | null = null;
   private finalText = "";
   private prevMuteState: VoiceState = "LISTENING";
+  private spokenIndex = 0;
+  private streamDone = false;
+  private static SENTENCE_END = /[.!?\n]\s*/;
+
+  // Fix 4: Notify throttle — batch rapid state updates into ~50ms frames
+  private notifyTimer: ReturnType<typeof setTimeout> | null = null;
+  private notifyPending = false;
+
+  // Fix 7: handleDone hang safety net
+  private doneTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Fix 8: Volume change threshold — skip tiny changes
+  private lastNotifiedVolume = 0;
+  private static VOLUME_THRESHOLD = 0.02;
 
   readonly isSupported: boolean;
 
@@ -97,6 +112,21 @@ export class VoiceSession {
 
   private notify() {
     this.onChange?.();
+  }
+
+  private throttledNotify() {
+    if (this.notifyTimer) {
+      this.notifyPending = true;
+      return;
+    }
+    this.notify();
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = null;
+      if (this.notifyPending) {
+        this.notifyPending = false;
+        this.notify();
+      }
+    }, 50);
   }
 
   // ─── Voices ───────────────────────────────────────────────
@@ -209,14 +239,17 @@ export class VoiceSession {
     }
   }
 
+  // Fix 6: Adaptive silence timeout — short for follow-ups, longer for first turn
   private resetSilenceTimer() {
     if (this.silenceTimer) clearTimeout(this.silenceTimer);
+    const hasContext = !!this.aiResponse;
+    const timeout = hasContext ? 800 : 1200;
     this.silenceTimer = setTimeout(() => {
       const text = this.finalText.trim();
       if (text && this.state === "LISTENING") {
         this.onFinalTranscript?.(text);
       }
-    }, 1000);
+    }, timeout);
   }
 
   // ─── Audio analyser ───────────────────────────────────────
@@ -243,8 +276,15 @@ export class VoiceSession {
         const v = (this.dataArray[i] - 128) / 128;
         sum += v * v;
       }
-      this.volume = Math.min(1, Math.sqrt(sum / this.dataArray.length) * 3);
-      this.notify();
+      const newVol = Math.min(1, Math.sqrt(sum / this.dataArray.length) * 3);
+
+      // Fix 8: Only notify if volume changed meaningfully
+      if (Math.abs(newVol - this.lastNotifiedVolume) > VoiceSession.VOLUME_THRESHOLD) {
+        this.volume = newVol;
+        this.lastNotifiedVolume = newVol;
+        this.throttledNotify();
+      }
+
       this.rafId = requestAnimationFrame(tick);
     };
     this.rafId = requestAnimationFrame(tick);
@@ -262,14 +302,29 @@ export class VoiceSession {
     this.analyserNode = null;
     this.dataArray = null;
     this.volume = 0;
+    this.lastNotifiedVolume = 0;
   }
 
   // ─── TTS ──────────────────────────────────────────────────
 
-  private speak(text: string) {
+  private returnToListening() {
+    if (this.doneTimer) {
+      clearTimeout(this.doneTimer);
+      this.doneTimer = null;
+    }
+    this.clearTranscript();
+    this.state = "LISTENING";
+    this.setupRecognition();
+    this.notify();
+  }
+
+  private speakSentence(text: string, isFirst: boolean) {
     if (!text.trim()) return;
-    speechSynthesis.cancel();
-    this.teardownRecognition();
+
+    if (isFirst) {
+      speechSynthesis.cancel();
+      this.teardownRecognition();
+    }
 
     const utt = new SpeechSynthesisUtterance(text);
     const voice = this.voices.find((v) => v.id === this.selectedVoice);
@@ -277,28 +332,31 @@ export class VoiceSession {
     utt.rate = this.selectedVoice.includes("Energetic") ? 1.1 : 1.0;
 
     utt.onstart = () => {
-      this.state = "SPEAKING";
-      this.notify();
+      if (this.state !== "SPEAKING") {
+        this.state = "SPEAKING";
+        this.notify();
+      }
     };
 
     utt.onend = () => {
-      this.clearTranscript();
-      this.state = "LISTENING";
-      this.setupRecognition();
-      this.notify();
+      if (this.streamDone && !speechSynthesis.pending) {
+        this.returnToListening();
+      }
     };
 
     utt.onerror = (e) => {
       if (e.error === "canceled") return;
-      this.clearTranscript();
-      this.state = "LISTENING";
-      this.setupRecognition();
-      this.notify();
+      if (this.streamDone && !speechSynthesis.pending) {
+        this.returnToListening();
+      }
     };
 
-    this.state = "SPEAKING";
-    this.notify();
     speechSynthesis.speak(utt);
+
+    if (this.state !== "SPEAKING") {
+      this.state = "SPEAKING";
+      this.notify();
+    }
   }
 
   private clearTranscript() {
@@ -324,6 +382,7 @@ export class VoiceSession {
     this.cleanup();
     this.error = null;
     this.aiResponse = "";
+    this.isWarmingUp = true;
     this.clearTranscript();
 
     try {
@@ -334,7 +393,6 @@ export class VoiceSession {
       }
       this.micStream = stream;
       this.setupAnalyser(stream);
-      this.setupRecognition();
       this.state = "LISTENING";
       this.notify();
     } catch {
@@ -357,11 +415,23 @@ export class VoiceSession {
     this.teardownRecognition();
     this.teardownAnalyser();
     speechSynthesis.cancel();
+    if (this.doneTimer) {
+      clearTimeout(this.doneTimer);
+      this.doneTimer = null;
+    }
+    if (this.notifyTimer) {
+      clearTimeout(this.notifyTimer);
+      this.notifyTimer = null;
+    }
     if (this.micStream) {
       this.micStream.getTracks().forEach((t) => t.stop());
       this.micStream = null;
     }
     this.aiResponse = "";
+    this.isWarmingUp = false;
+    this.spokenIndex = 0;
+    this.streamDone = false;
+    this.notifyPending = false;
     this.clearTranscript();
   }
 
@@ -385,25 +455,53 @@ export class VoiceSession {
     }
   };
 
-  // ─── Called by the hook for socket events ─────────────────
-
-  addToken(token: string) {
-    if (this.state !== "PROCESSING") return;
-    this.aiResponse += token;
+  modelReady() {
+    this.isWarmingUp = false;
+    if (this.state === "LISTENING" && !this.recognition) {
+      this.setupRecognition();
+    }
     this.notify();
   }
 
+  // ─── Called by the hook for socket events ─────────────────
+
+  addToken(token: string) {
+    if (this.state !== "PROCESSING" && this.state !== "SPEAKING") return;
+    this.aiResponse += token;
+    this.throttledNotify();
+
+    const unspoken = this.aiResponse.slice(this.spokenIndex);
+    const match = VoiceSession.SENTENCE_END.exec(unspoken);
+    if (match) {
+      const boundary = this.spokenIndex + match.index + match[0].length;
+      const sentence = this.aiResponse.slice(this.spokenIndex, boundary);
+      this.spokenIndex = boundary;
+      this.speakSentence(sentence, this.state === "PROCESSING");
+    }
+  }
+
   handleDone(fullResponse?: string) {
-    if (this.state !== "PROCESSING") return;
+    if (this.state !== "PROCESSING" && this.state !== "SPEAKING") return;
     if (fullResponse && !this.aiResponse) this.aiResponse = fullResponse;
 
-    if (this.aiResponse.trim()) {
-      this.speak(this.aiResponse);
-    } else {
-      this.setupRecognition();
-      this.state = "LISTENING";
-      this.notify();
+    this.streamDone = true;
+    this.notify();
+
+    const remaining = this.aiResponse.slice(this.spokenIndex).trim();
+    if (remaining) {
+      this.spokenIndex = this.aiResponse.length;
+      this.speakSentence(remaining, this.state === "PROCESSING");
+    } else if (this.state === "PROCESSING") {
+      this.returnToListening();
+      return;
     }
+
+    // Fix 7: Safety net — if TTS callbacks never fire, force return after 10s
+    this.doneTimer = setTimeout(() => {
+      if (this.state === "SPEAKING" || this.state === "PROCESSING") {
+        this.returnToListening();
+      }
+    }, 10_000);
   }
 
   handleError(message: string) {
@@ -415,6 +513,12 @@ export class VoiceSession {
   setProcessing() {
     this.teardownRecognition();
     this.aiResponse = "";
+    this.spokenIndex = 0;
+    this.streamDone = false;
+    if (this.doneTimer) {
+      clearTimeout(this.doneTimer);
+      this.doneTimer = null;
+    }
     this.clearTranscript();
     this.state = "PROCESSING";
     this.notify();

@@ -21,6 +21,7 @@ export interface UseVoiceSessionReturn {
   volume: number;
   error: string | null;
   isSupported: boolean;
+  isWarmingUp: boolean;
   start: () => void;
   stop: () => void;
   toggleMute: () => void;
@@ -38,6 +39,7 @@ interface Snapshot {
   volume: number;
   error: string | null;
   isSupported: boolean;
+  isWarmingUp: boolean;
   selectedVoice: string;
   voices: VoiceOption[];
 }
@@ -51,6 +53,7 @@ function takeSnapshot(s: VoiceSession): Snapshot {
     volume: s.volume,
     error: s.error,
     isSupported: s.isSupported,
+    isWarmingUp: s.isWarmingUp,
     selectedVoice: s.selectedVoice,
     voices: s.voices,
   };
@@ -79,6 +82,7 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     volume: 0,
     error: null,
     isSupported: checkSupport(),
+    isWarmingUp: false,
     selectedVoice: "Nova - Energetic & Fast",
     voices: [],
   }));
@@ -138,6 +142,9 @@ export function useVoiceSession(): UseVoiceSessionReturn {
         }
       }
 
+      turnStartRef.current = Date.now();
+      ttftLoggedRef.current = false;
+
       const socket = getSocket();
       socket.emit("user_message", {
         conversationId: convId,
@@ -155,16 +162,25 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     };
   }, []);
 
+  // Fix 9: Frontend metrics — track TTFT and turn duration
+  const turnStartRef = useRef<number>(0);
+  const ttftLoggedRef = useRef(false);
+
   // Socket listeners
   useEffect(() => {
     const s = sessionRef.current!;
     const socket = getSocket();
 
     const onToken = (data: { token: string }) => {
+      if (!ttftLoggedRef.current) {
+        ttftLoggedRef.current = true;
+        console.log(`[voice-metrics] client-TTFT=${Date.now() - turnStartRef.current}ms`);
+      }
       s.addToken(data.token);
     };
 
     const onDone = (data?: { conversationId?: string; content?: string }) => {
+      console.log(`[voice-metrics] turn-duration=${Date.now() - turnStartRef.current}ms`);
       refreshRef.current();
       s.handleDone(data?.content);
     };
@@ -173,14 +189,20 @@ export function useVoiceSession(): UseVoiceSessionReturn {
       s.handleError(data.message);
     };
 
+    const onModelReady = () => {
+      s.modelReady();
+    };
+
     socket.on("ai_token", onToken);
     socket.on("ai_done", onDone);
     socket.on("ai_error", onError);
+    socket.on("model_ready", onModelReady);
 
     return () => {
       socket.off("ai_token", onToken);
       socket.off("ai_done", onDone);
       socket.off("ai_error", onError);
+      socket.off("model_ready", onModelReady);
     };
   }, []);
 
