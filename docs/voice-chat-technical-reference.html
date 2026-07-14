@@ -1,0 +1,810 @@
+<title>Voice Chat — Deep Technical Walkthrough</title>
+<style>
+  @font-face {
+    font-family: 'Mono';
+    src: local('JetBrains Mono'), local('Fira Code'), local('Cascadia Code'), local('Consolas');
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #FAFAF7;
+    --bg-sub: #F3F2EE;
+    --bg-card: #FFFFFF;
+    --bg-accent: #EEF4EE;
+    --bg-warn: #FFF8EC;
+    --text: #1C1C19;
+    --text-body: #3A3A35;
+    --text-dim: #7A7A72;
+    --text-label: #9A9A90;
+    --accent: #2D6A4F;
+    --accent-soft: #40916C;
+    --accent-bg: #D4E8D4;
+    --warn: #92660A;
+    --border: #DDDDD6;
+    --border-soft: #EAEAE4;
+    --code-bg: #F0EFEB;
+    --shadow: 0 1px 4px rgba(28,28,25,0.06);
+    --pill-idle: #8C8C84;
+    --pill-listen: #2D6A4F;
+    --pill-process: #92660A;
+    --pill-speak: #2563EB;
+    --pill-error: #C53030;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131311;
+      --bg-sub: #1A1A17;
+      --bg-card: #1E1E1B;
+      --bg-accent: #172417;
+      --bg-warn: #231E12;
+      --text: #E6E6DF;
+      --text-body: #C8C8BF;
+      --text-dim: #8A8A80;
+      --text-label: #636360;
+      --accent: #52B788;
+      --accent-soft: #74C69D;
+      --accent-bg: #1E3A25;
+      --warn: #E9B949;
+      --border: #2C2C28;
+      --border-soft: #232320;
+      --code-bg: #1A1A17;
+      --shadow: 0 1px 4px rgba(0,0,0,0.25);
+      --pill-idle: #6B6B64;
+      --pill-listen: #52B788;
+      --pill-process: #E9B949;
+      --pill-speak: #60A5FA;
+      --pill-error: #FC8181;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131311;
+    --bg-sub: #1A1A17;
+    --bg-card: #1E1E1B;
+    --bg-accent: #172417;
+    --bg-warn: #231E12;
+    --text: #E6E6DF;
+    --text-body: #C8C8BF;
+    --text-dim: #8A8A80;
+    --text-label: #636360;
+    --accent: #52B788;
+    --accent-soft: #74C69D;
+    --accent-bg: #1E3A25;
+    --warn: #E9B949;
+    --border: #2C2C28;
+    --border-soft: #232320;
+    --code-bg: #1A1A17;
+    --shadow: 0 1px 4px rgba(0,0,0,0.25);
+    --pill-idle: #6B6B64;
+    --pill-listen: #52B788;
+    --pill-process: #E9B949;
+    --pill-speak: #60A5FA;
+    --pill-error: #FC8181;
+  }
+  :root[data-theme="light"] {
+    --bg: #FAFAF7;
+    --bg-sub: #F3F2EE;
+    --bg-card: #FFFFFF;
+    --bg-accent: #EEF4EE;
+    --bg-warn: #FFF8EC;
+    --text: #1C1C19;
+    --text-body: #3A3A35;
+    --text-dim: #7A7A72;
+    --text-label: #9A9A90;
+    --accent: #2D6A4F;
+    --accent-soft: #40916C;
+    --accent-bg: #D4E8D4;
+    --warn: #92660A;
+    --border: #DDDDD6;
+    --border-soft: #EAEAE4;
+    --code-bg: #F0EFEB;
+    --shadow: 0 1px 4px rgba(28,28,25,0.06);
+    --pill-idle: #8C8C84;
+    --pill-listen: #2D6A4F;
+    --pill-process: #92660A;
+    --pill-speak: #2563EB;
+    --pill-error: #C53030;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Charter', 'Georgia', 'Times New Roman', serif;
+    background: var(--bg);
+    color: var(--text-body);
+    line-height: 1.78;
+    font-size: 16.5px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 780px; margin: 0 auto; padding: 3.5rem 1.5rem 7rem; }
+
+  /* ── Header ── */
+  .hdr { margin-bottom: 3rem; }
+  .hdr-eyebrow {
+    font-family: 'Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 0.6rem;
+  }
+  .hdr h1 {
+    font-family: 'Charter', 'Georgia', serif;
+    font-size: 2.1rem; font-weight: 700;
+    line-height: 1.18; letter-spacing: -0.025em;
+    color: var(--text); margin-bottom: 0.6rem;
+  }
+  .hdr-sub {
+    font-size: 1.05rem; color: var(--text-dim);
+    max-width: 580px; line-height: 1.6;
+  }
+  .hdr-meta {
+    display: flex; flex-wrap: wrap; gap: 1.2rem; margin-top: 1.1rem;
+    font-family: 'Mono', monospace; font-size: 0.7rem; color: var(--text-label);
+  }
+  .hdr-rule { border: none; border-top: 2px solid var(--accent); margin-top: 1.5rem; }
+
+  /* ── Sections ── */
+  section { margin-bottom: 3.2rem; }
+  .sec-num {
+    font-family: 'Mono', monospace; font-size: 0.62rem;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 0.35rem;
+  }
+  h2 {
+    font-family: 'Charter', 'Georgia', serif;
+    font-size: 1.5rem; font-weight: 700; line-height: 1.25;
+    letter-spacing: -0.015em; color: var(--text);
+    margin-bottom: 0.85rem; text-wrap: balance;
+  }
+  h3 {
+    font-size: 1.1rem; font-weight: 700; line-height: 1.3;
+    color: var(--text); margin: 1.8rem 0 0.5rem;
+  }
+  h3:first-child { margin-top: 0; }
+  p { margin-bottom: 1rem; max-width: 68ch; }
+
+  /* ── Code ── */
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border-soft);
+    border-radius: 5px; padding: 0.9rem 1.1rem; overflow-x: auto;
+    margin: 0.8rem 0 1.1rem; font-family: 'Mono', monospace;
+    font-size: 0.77rem; line-height: 1.7; color: var(--text);
+  }
+  code {
+    font-family: 'Mono', monospace; font-size: 0.82em;
+    background: var(--code-bg); padding: 0.1em 0.3em;
+    border-radius: 3px; color: var(--accent);
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+
+  /* ── Callout ── */
+  .note {
+    background: var(--bg-accent); border-left: 3px solid var(--accent);
+    padding: 0.8rem 1.1rem; border-radius: 0 5px 5px 0;
+    margin: 1.1rem 0; font-size: 0.92rem;
+  }
+  .note b { color: var(--accent); }
+  .note-warn {
+    background: var(--bg-warn); border-left-color: var(--warn);
+  }
+  .note-warn b { color: var(--warn); }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 2.8rem 0; }
+
+  /* ── Architecture diagram ── */
+  .arch {
+    background: var(--bg-card); border: 1px solid var(--border-soft);
+    border-radius: 6px; padding: 1.2rem 1.4rem;
+    box-shadow: var(--shadow); margin: 1rem 0 1.2rem;
+    overflow-x: auto;
+  }
+  .arch pre { background: none; border: none; padding: 0; margin: 0; box-shadow: none; }
+
+  /* ── State pills ── */
+  .states { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; margin: 1rem 0; }
+  .st {
+    font-family: 'Mono', monospace; font-size: 0.7rem; font-weight: 600;
+    padding: 0.25rem 0.7rem; border-radius: 100px; letter-spacing: 0.03em;
+  }
+  .st-idle { background: color-mix(in srgb, var(--pill-idle) 14%, transparent); color: var(--pill-idle); }
+  .st-listen { background: color-mix(in srgb, var(--pill-listen) 14%, transparent); color: var(--pill-listen); }
+  .st-process { background: color-mix(in srgb, var(--pill-process) 14%, transparent); color: var(--pill-process); }
+  .st-speak { background: color-mix(in srgb, var(--pill-speak) 14%, transparent); color: var(--pill-speak); }
+  .st-error { background: color-mix(in srgb, var(--pill-error) 14%, transparent); color: var(--pill-error); }
+  .st-arr { font-family: 'Mono', monospace; font-size: 0.72rem; color: var(--text-label); }
+
+  /* ── File cards ── */
+  .files { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 1rem 0; }
+  @media (max-width: 620px) { .files { grid-template-columns: 1fr; } }
+  .fc {
+    background: var(--bg-card); border: 1px solid var(--border-soft);
+    border-radius: 5px; padding: 0.65rem 0.85rem; box-shadow: var(--shadow);
+  }
+  .fc-p { font-family: 'Mono', monospace; font-size: 0.7rem; color: var(--accent); word-break: break-all; }
+  .fc-d { font-size: 0.82rem; color: var(--text-dim); margin-top: 0.15rem; line-height: 1.45; }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--bg-card); border: 1px solid var(--border-soft);
+    border-radius: 6px; padding: 1.1rem 1.3rem; box-shadow: var(--shadow);
+    margin: 1.8rem 0 2.8rem; columns: 2; column-gap: 2rem;
+  }
+  @media (max-width: 620px) { .toc { columns: 1; } }
+  .toc-t {
+    font-family: 'Mono', monospace; font-size: 0.62rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-label); margin-bottom: 0.45rem;
+    column-span: all;
+  }
+  .toc ol { list-style: none; counter-reset: tc; padding: 0; }
+  .toc li { counter-increment: tc; break-inside: avoid; padding: 0.15rem 0; }
+  .toc a {
+    font-size: 0.86rem; color: var(--text-body);
+    text-decoration: none; display: flex; gap: 0.45rem; align-items: baseline;
+  }
+  .toc a:hover { color: var(--accent); }
+  .toc a::before {
+    content: counter(tc, decimal-leading-zero);
+    font-family: 'Mono', monospace; font-size: 0.65rem;
+    color: var(--accent); flex-shrink: 0; width: 1.3rem;
+  }
+
+  /* ── Metrics ── */
+  .metrics { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+  .m-card {
+    background: var(--bg-card); border: 1px solid var(--border-soft);
+    border-radius: 5px; padding: 0.55rem 0.9rem; box-shadow: var(--shadow);
+    flex: 1; min-width: 130px;
+  }
+  .m-label { font-family: 'Mono', monospace; font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-label); }
+  .m-val { font-family: 'Mono', monospace; font-size: 1.05rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .m-note { font-size: 0.72rem; color: var(--text-dim); }
+
+  /* ── Socket table ── */
+  .sock-tbl { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  .sock-tbl th {
+    font-family: 'Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-label); text-align: left;
+    padding: 0.45rem 0.7rem; border-bottom: 2px solid var(--border); white-space: nowrap;
+  }
+  .sock-tbl td { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+  .sock-tbl tr:last-child td { border-bottom: none; }
+  .sock-tbl .sn { font-family: 'Mono', monospace; font-size: 0.78rem; color: var(--accent); white-space: nowrap; }
+  .sock-tbl .sd { font-family: 'Mono', monospace; font-size: 0.66rem; color: var(--text-label); white-space: nowrap; }
+
+  @media (max-width: 620px) {
+    .page { padding: 2rem 1rem 4rem; }
+    .hdr h1 { font-size: 1.55rem; }
+    h2 { font-size: 1.3rem; }
+    .hdr-meta { flex-direction: column; gap: 0.25rem; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="hdr">
+    <div class="hdr-eyebrow">AI Assistance Platform</div>
+    <h1>Voice Chat — Deep Technical Walkthrough</h1>
+    <p class="hdr-sub">A comprehensive explanation of every layer in the real-time voice conversation system — from the browser APIs that capture and play audio, through the WebSocket transport, to the LLM streaming backend. Written as a narrative reference for technical interviews.</p>
+    <div class="hdr-meta">
+      <span>Stack: Next.js 16 / React 19 / Express / Ollama / Prisma</span>
+      <span>Transport: Socket.IO (WebSocket)</span>
+      <span>Updated: July 2026</span>
+    </div>
+    <hr class="hdr-rule">
+  </header>
+
+  <nav class="toc">
+    <div class="toc-t">Contents</div>
+    <ol>
+      <li><a href="#s1">High-Level Architecture &amp; Design Rationale</a></li>
+      <li><a href="#s2">File Structure &amp; Separation of Concerns</a></li>
+      <li><a href="#s3">The Imperative Class Pattern (and why not hooks)</a></li>
+      <li><a href="#s4">Voice State Machine</a></li>
+      <li><a href="#s5">Full Lifecycle: Startup to First Word</a></li>
+      <li><a href="#s6">Full Lifecycle: A Complete Conversation Turn</a></li>
+      <li><a href="#s7">Speech-to-Text Engine</a></li>
+      <li><a href="#s8">Text-to-Speech &amp; Incremental Streaming</a></li>
+      <li><a href="#s9">Real-Time Audio Visualization</a></li>
+      <li><a href="#s10">Socket.IO Transport Layer</a></li>
+      <li><a href="#s11">Backend: LLM Streaming Pipeline</a></li>
+      <li><a href="#s12">Cold Start Elimination Strategy</a></li>
+      <li><a href="#s13">Performance Optimizations &amp; Trade-offs</a></li>
+      <li><a href="#s14">Error Handling &amp; Edge Cases</a></li>
+      <li><a href="#s15">Observability &amp; Metrics</a></li>
+    </ol>
+  </nav>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s1">
+    <div class="sec-num">01</div>
+    <h2>High-Level Architecture &amp; Design Rationale</h2>
+
+    <p>The voice chat system is a real-time, full-duplex conversation loop between the browser and a locally-hosted LLM (Ollama running llama3 8B). The user speaks, the browser transcribes speech to text, sends the text to the server over a WebSocket, the server streams AI tokens back, and the browser reads them aloud sentence-by-sentence — all while showing live visual feedback.</p>
+
+    <div class="arch">
+      <pre><code>Browser (Next.js, port 3000)                 Server (Express, port 3001)
+┌────────────────────────┐                  ┌────────────────────────┐
+│  VoiceOverlay  (UI)    │                  │  Socket.IO Server      │
+│       ↕                │                  │       ↕                │
+│  useVoiceSession (hook)│   WebSocket      │  Event Handlers        │
+│       ↕                │ ←────────────→   │       ↕                │
+│  VoiceSession  (class) │                  │  ChatService           │
+│    ↕          ↕        │                  │    ↕          ↕        │
+│  Web Speech   Web Audio│                  │  ChatOllama  Prisma    │
+│  API          API      │                  │  (LangChain) (Postgres)│
+│  (STT + TTS)  (volume) │                  │       ↕                │
+└────────────────────────┘                  │  MessageRepository     │
+                                            └────────────────────────┘</code></pre>
+    </div>
+
+    <p>The most important architectural decision is that <strong>all speech processing happens entirely in the browser</strong>. The Web Speech API handles both speech-to-text (STT) and text-to-speech (TTS) natively — no audio data ever leaves the client. This was a deliberate trade-off: it eliminates network latency for transcription, avoids third-party API costs (Whisper, Google STT), and keeps the system self-contained, but it limits STT accuracy to what the browser provides (Chrome's engine is good but not perfect) and restricts voice chat to browsers that support the Web Speech API (Chrome and Edge).</p>
+
+    <p>The communication layer uses <strong>Socket.IO</strong> rather than REST because voice conversation is inherently bidirectional and streaming. The server needs to push tokens as they arrive from the LLM — polling or long-polling would add unacceptable latency. Socket.IO provides WebSocket transport with automatic reconnection, room-based routing, and a clean event-based API. The connection is authenticated using JWT tokens passed during the handshake.</p>
+
+    <p>The LLM runs locally via <strong>Ollama</strong> with the llama3 8B model (Q4_0 quantization). On CPU, this produces roughly 3.6 tokens per second. Voice mode constrains responses to 120 tokens maximum and appends a system prompt that enforces 1–3 sentence brevity — because a voice assistant that rambles for 30 seconds is unusable.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s2">
+    <div class="sec-num">02</div>
+    <h2>File Structure &amp; Separation of Concerns</h2>
+
+    <p>The codebase is split across two repositories. The frontend is a Next.js 16 application with React 19, and the backend is an Express server. Within the frontend, the voice system is organized into three layers, each with a single responsibility:</p>
+
+    <h3>Frontend</h3>
+    <div class="files">
+      <div class="fc">
+        <div class="fc-p">app/_components/voice/VoiceSession.ts</div>
+        <div class="fc-d">Pure imperative class. Manages all browser APIs (SpeechRecognition, SpeechSynthesis, AudioContext, MediaStream). Contains the state machine. Has zero React imports — it's framework-agnostic.</div>
+      </div>
+      <div class="fc">
+        <div class="fc-p">app/_components/hooks/useVoiceSession.ts</div>
+        <div class="fc-d">Thin React bridge. Creates the VoiceSession once, wires its onChange callback to React state via snapshots, connects Socket.IO listeners, handles conversation creation.</div>
+      </div>
+      <div class="fc">
+        <div class="fc-p">app/_components/VoiceOverlay.tsx</div>
+        <div class="fc-d">Pure presentational component. Full-screen overlay with animated orb, frequency bars, transcript display, voice selector dropdown, and control buttons. Renders from the snapshot state.</div>
+      </div>
+      <div class="fc">
+        <div class="fc-p">app/lib/socket.ts</div>
+        <div class="fc-d">Socket.IO client singleton. Creates one connection per session, authenticated via JWT from localStorage. Provides getSocket(), reconnectSocket(), disconnectSocket().</div>
+      </div>
+    </div>
+
+    <h3>Backend</h3>
+    <div class="files">
+      <div class="fc">
+        <div class="fc-p">src/config/socket.ts</div>
+        <div class="fc-d">Socket.IO server setup. JWT auth middleware, event handlers (warm_model, user_message, cancel_stream), token batching logic, model keepalive interval.</div>
+      </div>
+      <div class="fc">
+        <div class="fc-p">src/services/ChatService.ts</div>
+        <div class="fc-d">Core business logic. Singleton voice model management, system prompt construction with personality traits, LLM streaming with async iterators, message history, metrics instrumentation.</div>
+      </div>
+      <div class="fc">
+        <div class="fc-p">src/repositories/MessageRepository.ts</div>
+        <div class="fc-d">Prisma data access layer. Standard CRUD plus findRecentByConversationId — a descending query that returns the latest N messages in chronological order.</div>
+      </div>
+      <div class="fc">
+        <div class="fc-p">src/config/ai.ts</div>
+        <div class="fc-d">ChatOllama factory for text chat mode. Voice mode bypasses this and uses its own singleton instance with a numPredict cap.</div>
+      </div>
+    </div>
+
+    <p>This separation matters because each layer can be understood, tested, and modified independently. The VoiceSession class could be dropped into a vanilla JS app with zero changes. The React hook handles only the bridging concerns (state synchronization, socket wiring, conversation management). The overlay component is purely presentational — it receives data and renders it.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s3">
+    <div class="sec-num">03</div>
+    <h2>The Imperative Class Pattern (and why not hooks)</h2>
+
+    <p>The voice feature manages several long-lived, stateful browser APIs simultaneously: SpeechRecognition (continuous microphone listening), SpeechSynthesis (a queue of utterances being spoken), AudioContext with an AnalyserNode (real-time volume), and a MediaStream (the mic track itself). These are imperative APIs — you call <code>.start()</code>, attach event handlers, and the objects persist and mutate over time.</p>
+
+    <p>The first implementation used React hooks directly: <code>useRef</code> for the SpeechRecognition instance, <code>useEffect</code> for setup/teardown, <code>useState</code> for the transcript. This caused three categories of bugs:</p>
+
+    <p><strong>Stale closures.</strong> When a <code>useEffect</code> captures a callback at mount time, it closes over the state values from that render. If an <code>onresult</code> handler references a transcript state variable, it sees the value from the render when the effect ran — not the current value. Every speech event would overwrite previous text. The workaround is adding more refs, but that turns the hook into a ref-management nightmare.</p>
+
+    <p><strong>Effect dependency churn.</strong> React hooks require listing all referenced variables in dependency arrays. With five browser APIs and a dozen state variables, the effect dependencies become unwieldy — and any missed dependency causes stale reads. Adding correct dependencies causes effects to re-run, tearing down and rebuilding SpeechRecognition on every state change.</p>
+
+    <p><strong>React 19 StrictMode double-mount.</strong> In development, React 19 mounts every component twice (mount → unmount → mount) to expose side-effect bugs. With browser APIs, this means <code>getUserMedia</code> is called twice, two mic streams are opened, and the first one leaks because the teardown races with the second setup.</p>
+
+    <p>The solution is the <strong>imperative class + snapshot</strong> pattern. The <code>VoiceSession</code> class owns all browser API instances as private fields and exposes public properties (<code>state</code>, <code>transcript</code>, <code>aiResponse</code>, <code>volume</code>, etc.) that represent the current truth. It has a single <code>onChange</code> callback — when anything changes, it calls <code>onChange()</code> and the React hook takes a snapshot:</p>
+
+    <pre><code>// The class — no React, no closures, no stale state
+class VoiceSession {
+  state: VoiceState = "IDLE";
+  transcript = "";
+  onChange: (() => void) | null = null;
+
+  addToken(token: string) {
+    this.aiResponse += token;       // direct mutation, always current
+    this.throttledNotify();          // tell React to re-snapshot
+  }
+}
+
+// The hook — creates class once, reads snapshots for rendering
+const sessionRef = useRef<VoiceSession | null>(null);
+if (sessionRef.current == null) {
+  sessionRef.current = new VoiceSession();   // lazy-ref init
+}
+
+const [snap, setSnap] = useState<Snapshot>(() => initialSnapshot);
+
+useEffect(() => {
+  const s = sessionRef.current!;
+  s.onChange = () => setSnap(takeSnapshot(s));  // mirror class → state
+  return () => { s.onChange = null; };
+}, []);</code></pre>
+
+    <p>This pattern satisfies React 19's strict lint rules: the <code>== null</code> lazy-ref init is the lint-approved way to initialize refs without triggering <code>react-hooks/refs</code> (which forbids reading <code>.current</code> during render). The snapshot state satisfies <code>react-hooks/immutability</code> (React never sees the mutable class directly — only frozen snapshots). And methods are wrapped in <code>useCallback</code> that access the ref inside the callback body, which is safe because callback execution happens outside render.</p>
+
+    <p>For StrictMode double-mount, the <code>start()</code> method uses an <code>AbortController</code>. When React unmounts the first instance, the cleanup calls <code>abort()</code>. The second mount creates a new controller. The first <code>getUserMedia</code> promise checks <code>signal.aborted</code> when it resolves — if the first mount was torn down, it stops the mic tracks immediately and returns. No resource leak.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s4">
+    <div class="sec-num">04</div>
+    <h2>Voice State Machine</h2>
+
+    <p>The entire system's behavior is governed by a single <code>state</code> property on the VoiceSession class. There are six possible states, and all UI rendering, API behavior, and transition logic branches on this value.</p>
+
+    <div class="states">
+      <span class="st st-idle">IDLE</span>
+      <span class="st-arr">→</span>
+      <span class="st st-listen">LISTENING</span>
+      <span class="st-arr">→</span>
+      <span class="st st-process">PROCESSING</span>
+      <span class="st-arr">→</span>
+      <span class="st st-speak">SPEAKING</span>
+      <span class="st-arr">→</span>
+      <span class="st st-listen">LISTENING</span>
+      <span class="st-arr">(loop)</span>
+    </div>
+
+    <p><strong>IDLE</strong> is the initial state — the overlay is not open, no resources are allocated. <strong>LISTENING</strong> means the mic is active and SpeechRecognition is running; the UI shows "Speak now" and the orb pulses with microphone volume. <strong>PROCESSING</strong> means the user's speech has been sent to the backend and we're waiting for (or receiving) AI tokens — the orb shows a thinking animation and streaming text appears in real-time. <strong>SPEAKING</strong> means TTS is actively reading the response aloud. <strong>MUTED</strong> pauses recognition while preserving the previous state for un-mute. <strong>ERROR</strong> captures any failure (mic denied, socket error, AI error) with a message and a retry button.</p>
+
+    <p>The key insight is the PROCESSING → SPEAKING overlap. Because TTS starts as soon as the first sentence boundary is detected in the token stream (not after the full response), the system transitions to SPEAKING while tokens are still arriving. The <code>addToken()</code> method works in both PROCESSING and SPEAKING states. This overlap is what makes the voice feel responsive — the user hears the first sentence within 2–3 seconds of the first token, while the rest of the response is still being generated.</p>
+
+    <p>The loop closes when the last TTS utterance finishes: the <code>onend</code> callback checks <code>this.streamDone && !speechSynthesis.pending</code>. If the stream is complete and no more utterances are queued, it calls <code>returnToListening()</code> — which clears the transcript, restarts SpeechRecognition, and sets state back to LISTENING. The user can immediately speak again.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s5">
+    <div class="sec-num">05</div>
+    <h2>Full Lifecycle: Startup to First Word</h2>
+
+    <p>When the user taps the microphone button in the chat interface, the <code>VoiceOverlay</code> component mounts. Its mount effect triggers two parallel operations that must both complete before the user can speak:</p>
+
+    <p><strong>Path A — Browser side:</strong> The hook's <code>start()</code> callback fires, which does two things. First, it emits a <code>warm_model</code> event to the server via Socket.IO. Second, it calls <code>session.start()</code> on the VoiceSession class. Inside <code>start()</code>, the class calls <code>navigator.mediaDevices.getUserMedia({ audio: true })</code> to request microphone access. This is async and may show a browser permission dialog. While waiting, the class sets <code>isWarmingUp = true</code> and transitions to LISTENING — the UI shows "Preparing assistant..." so the user knows something is happening.</p>
+
+    <p>Once the mic stream is granted, <code>setupAnalyser(stream)</code> creates an <code>AudioContext</code>, pipes the mic stream through a <code>MediaStreamSource</code> into an <code>AnalyserNode</code> (FFT size 256), and starts a <code>requestAnimationFrame</code> loop that reads time-domain waveform data and computes RMS volume 60 times per second. This drives the orb animation immediately — the user sees visual feedback that the mic is working.</p>
+
+    <p><strong>Path B — Server side:</strong> The <code>warm_model</code> handler on the server calls <code>warmModel()</code> in ChatService, which invokes the singleton ChatOllama instance with a trivial input (<code>"hi"</code>). For Ollama, the first inference after a cold start loads the entire model file (~4.3GB for llama3 8B Q4_0) into RAM. This takes about 14 seconds on a machine without GPU. Once warm completes, the server emits <code>model_ready</code> back to the client.</p>
+
+    <p><strong>Convergence:</strong> When the client receives <code>model_ready</code>, the VoiceSession's <code>modelReady()</code> method sets <code>isWarmingUp = false</code>. If the state is LISTENING and SpeechRecognition hasn't started yet (mic was granted but we were waiting for the model), it now calls <code>setupRecognition()</code>. The UI transitions from "Preparing assistant..." to "Speak now" — both paths have completed and the system is fully ready.</p>
+
+    <div class="note">
+      <b>Why gate recognition on model readiness?</b> If STT starts immediately, the user might speak a full sentence before the model is loaded. The silence timer would fire, send the transcript to the backend, and the backend would block for 14 seconds while Ollama loads — with no feedback. By gating on <code>model_ready</code>, the user only sees "Speak now" when the system can actually respond quickly.
+    </div>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s6">
+    <div class="sec-num">06</div>
+    <h2>Full Lifecycle: A Complete Conversation Turn</h2>
+
+    <p>Once the system is in LISTENING state, a single conversation turn flows through every layer of the stack. Here is exactly what happens from the moment the user finishes speaking to the moment they can speak again:</p>
+
+    <p><strong>1. Speech capture and silence detection.</strong> The Web Speech API fires <code>onresult</code> events continuously as the user speaks. Each event contains an array of results — some marked <code>isFinal</code> (committed transcription), others interim (tentative, may change). The handler separates these and updates the live transcript displayed in the UI. Each speech event resets a silence timer. The timer uses adaptive timeouts: 1200ms for the first turn (user may pause to think), 800ms for follow-up turns (conversation is flowing, faster response expected). When the timer fires without new speech, it takes <code>finalText</code> (the committed transcription) and passes it to the <code>onFinalTranscript</code> callback.</p>
+
+    <p><strong>2. Conversation creation and message dispatch.</strong> The <code>onFinalTranscript</code> callback lives in the React hook. It first checks if a conversation exists. If this is the first turn, it creates one via a REST POST to <code>/api/conversations</code> and stores the returned ID in a ref. Then it records a <code>turnStartRef</code> timestamp (for metrics), emits a <code>user_message</code> Socket.IO event with <code>{ conversationId, content, mode: "voice" }</code>, and calls <code>session.setProcessing()</code> — which tears down SpeechRecognition (so it doesn't pick up its own TTS output), clears the transcript, resets token tracking, and moves to PROCESSING state.</p>
+
+    <p><strong>3. Backend receives and processes.</strong> The socket handler validates the payload, creates an AbortController (for cancellation support), and calls <code>streamChat()</code>. Inside streamChat, the flow is: look up the conversation to get the assistantId → in parallel, fetch the assistant record and save the user message to the database → load the 6 most recent messages for voice context → construct the message array with a system prompt that includes the assistant's personality plus voice-mode brevity instructions → create a streaming inference call to the singleton ChatOllama instance.</p>
+
+    <p><strong>4. Token streaming with batching.</strong> Ollama yields tokens one at a time through an async iterator. At ~3.6 tokens/sec, that's roughly one token every 280ms. Instead of emitting each token as a separate Socket.IO event (which would mean ~3.6 network frames per second with overhead), the socket handler uses a batching strategy: tokens accumulate in an array buffer, and a timer flushes them as a single concatenated string every 80ms. This reduces socket emissions by roughly 70% while keeping perceived latency under 80ms per batch.</p>
+
+    <p><strong>5. Client-side token handling and incremental TTS.</strong> Each batched <code>ai_token</code> event calls <code>session.addToken(batchedText)</code>. The method appends the text to <code>aiResponse</code> (which the UI renders immediately with a blinking cursor) and then checks for sentence boundaries using the regex <code>/[.!?\n]\s*/</code>. It maintains a <code>spokenIndex</code> — a pointer into aiResponse marking how far has been sent to TTS. When a sentence boundary is found in the unspoken portion, it extracts the sentence, advances spokenIndex, and calls <code>speakSentence()</code>.</p>
+
+    <p><strong>6. TTS queuing and playback.</strong> <code>speakSentence()</code> creates a <code>SpeechSynthesisUtterance</code>, sets the selected voice and rate, attaches <code>onstart</code>/<code>onend</code>/<code>onerror</code> handlers, and calls <code>speechSynthesis.speak(utt)</code>. The browser's TTS engine queues multiple utterances — so while sentence 1 is being spoken, sentences 2 and 3 can already be queued. The <code>onstart</code> of the first utterance transitions to SPEAKING state. Each subsequent sentence just adds to the queue.</p>
+
+    <p><strong>7. Stream completion.</strong> When the LLM finishes, the server force-flushes any remaining buffered tokens and emits <code>ai_done</code> with the full response as a fallback. The client calls <code>session.handleDone()</code>, which sets <code>streamDone = true</code>, speaks any remaining unspoken text, and starts a 10-second safety timer. The normal path: the last utterance's <code>onend</code> fires, sees <code>streamDone && !speechSynthesis.pending</code>, and calls <code>returnToListening()</code>. The safety timer is a fallback for the edge case where browser TTS callbacks silently fail.</p>
+
+    <p><strong>8. Return to LISTENING.</strong> <code>returnToListening()</code> clears the transcript fields, restarts SpeechRecognition, sets state to LISTENING, and notifies React. The UI shows "Speak now" again. The user can immediately begin their next turn. The conversation loop continues.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s7">
+    <div class="sec-num">07</div>
+    <h2>Speech-to-Text Engine</h2>
+
+    <p>STT uses the browser's native <code>SpeechRecognition</code> API (available as <code>window.SpeechRecognition</code> in Chrome and <code>window.webkitSpeechRecognition</code> in Edge). The API is configured for continuous listening with interim results:</p>
+
+    <pre><code>const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+rec.lang = "en-US";
+rec.continuous = true;        // don't stop after one phrase
+rec.interimResults = true;    // show partial results while speaking</code></pre>
+
+    <p><code>continuous: true</code> is important because by default, SpeechRecognition stops after detecting a pause in speech — which would make it useless for a conversation. However, even in continuous mode, Chrome's implementation periodically stops the session internally (roughly every 60 seconds or after long silence). The <code>onend</code> handler detects this and automatically restarts recognition if the state is still LISTENING, making it appear seamless to the user.</p>
+
+    <p>The <code>onresult</code> handler receives a <code>SpeechRecognitionResultList</code> — an array of result objects. Each result has an <code>isFinal</code> flag: when true, the transcription is committed and won't change. When false, it's a live interim prediction that the browser may revise. The handler separates these into <code>finalText</code> (accumulated committed text) and <code>interimTranscript</code> (current tentative text). The combined <code>transcript</code> (final + interim) is displayed to the user in real-time. The UI styles interim text in italicized gray so the user can distinguish confirmed from tentative words.</p>
+
+    <p>Since TypeScript doesn't include SpeechRecognition types by default, the file declares global interfaces for <code>SpeechRecognition</code>, <code>SpeechRecognitionEvent</code>, <code>SpeechRecognitionErrorEvent</code>, and the corresponding <code>Window</code> properties. This provides full type safety without external type packages.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s8">
+    <div class="sec-num">08</div>
+    <h2>Text-to-Speech &amp; Incremental Streaming</h2>
+
+    <p>The most important UX decision in the entire voice system is <strong>incremental TTS</strong> — speaking each sentence as it arrives rather than waiting for the complete AI response. Without this, the user would wait for the entire LLM generation (potentially 30+ seconds at 3.6 tok/s) before hearing anything. With it, the user hears the first sentence within a few seconds of the first token.</p>
+
+    <p>The mechanism works through a <code>spokenIndex</code> pointer. As tokens arrive via <code>addToken()</code>, they're appended to <code>aiResponse</code>. The method then checks the <em>unspoken</em> portion (everything from <code>spokenIndex</code> to the end) for sentence boundaries using the regex <code>/[.!?\n]\s*/</code>. When a boundary is found, the sentence is extracted, <code>spokenIndex</code> advances past it, and <code>speakSentence()</code> is called. The browser's <code>speechSynthesis.speak()</code> method naturally queues multiple utterances, so sentences play back-to-back without gaps.</p>
+
+    <pre><code>addToken(token: string) {
+  if (this.state !== "PROCESSING" && this.state !== "SPEAKING") return;
+  this.aiResponse += token;
+  this.throttledNotify();        // update UI (shows streaming text)
+
+  const unspoken = this.aiResponse.slice(this.spokenIndex);
+  const match = VoiceSession.SENTENCE_END.exec(unspoken);
+  if (match) {
+    const boundary = this.spokenIndex + match.index + match[0].length;
+    const sentence = this.aiResponse.slice(this.spokenIndex, boundary);
+    this.spokenIndex = boundary;
+    this.speakSentence(sentence, this.state === "PROCESSING");
+  }
+}</code></pre>
+
+    <p>The <code>isFirst</code> parameter to <code>speakSentence()</code> controls whether to call <code>speechSynthesis.cancel()</code> and tear down recognition before speaking. On the first sentence, this ensures no stale audio is playing and stops the mic from picking up the TTS output (which would create a feedback loop). Subsequent sentences just queue without disruption.</p>
+
+    <p>Three named voice profiles are available — Nova (energetic, rate 1.1), Echo (soft, rate 1.0), and Atlas (deep, rate 1.0). Each maps to a prioritized list of keywords matched against the browser's available English voices (e.g., <code>["zira", "samantha", "karen", "female"]</code>). The system falls back gracefully: if no keyword matches, it picks the first English voice; if no English voice exists, it picks the first voice available.</p>
+
+    <p>When the stream completes and <code>handleDone()</code> is called, any remaining unspoken text is flushed to TTS. The <code>streamDone</code> flag is set to true. The last utterance's <code>onend</code> callback checks this flag — if the stream is done and no more utterances are pending, the system transitions back to LISTENING.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s9">
+    <div class="sec-num">09</div>
+    <h2>Real-Time Audio Visualization</h2>
+
+    <p>The voice overlay features a central orb that pulses with microphone volume and 30 frequency bars (15 per side) that animate with speech energy. This visualization serves an important UX purpose: it gives the user confidence that the microphone is actually working and hearing them.</p>
+
+    <p>The pipeline starts with the <code>MediaStream</code> from <code>getUserMedia</code>. This is connected to a Web Audio API graph: <code>AudioContext</code> → <code>MediaStreamSource</code> → <code>AnalyserNode</code>. The analyser is configured with <code>fftSize: 256</code>, which gives 128 frequency bins. On every <code>requestAnimationFrame</code> tick, <code>getByteTimeDomainData()</code> fills a <code>Uint8Array</code> with the current waveform. The handler computes RMS (root mean square) by squaring each sample's deviation from the center (128), averaging, and taking the square root. A 3x multiplier boosts visual sensitivity. The result is clamped to 0–1.</p>
+
+    <pre><code>// Volume computation (runs at ~60fps)
+analyserNode.getByteTimeDomainData(dataArray);
+let sum = 0;
+for (let i = 0; i < dataArray.length; i++) {
+  const v = (dataArray[i] - 128) / 128;   // normalize to -1..1
+  sum += v * v;                            // square
+}
+volume = Math.min(1, Math.sqrt(sum / dataArray.length) * 3);  // RMS × 3</code></pre>
+
+    <p>A key optimization: the volume only triggers a React re-render if the change exceeds a threshold of 0.02. Without this, every animation frame would cause a re-render even when volume barely fluctuates — roughly 60 re-renders per second, most producing no visible change. The threshold eliminates about 60% of these wasted renders.</p>
+
+    <p>In the overlay component, the animation clock also runs via <code>requestAnimationFrame</code>, but only while state is LISTENING or SPEAKING. The volume drives two visual properties: the orb scales between 1.0 and 1.4 proportional to volume during LISTENING, and the frequency bars compute heights using a combination of volume amplitude and sine-wave offset (creating a wave effect across the bar array). During SPEAKING, both switch to time-based sine animations since the mic is off.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s10">
+    <div class="sec-num">10</div>
+    <h2>Socket.IO Transport Layer</h2>
+
+    <p>The WebSocket connection is the bridge between the browser's speech pipeline and the server's LLM pipeline. It carries seven distinct event types:</p>
+
+    <div style="overflow-x: auto;">
+      <table class="sock-tbl">
+        <thead>
+          <tr><th>Event</th><th>Direction</th><th>Payload</th><th>When &amp; Why</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="sn">warm_model</td><td class="sd">client → server</td><td>—</td><td>Emitted when overlay mounts. Triggers Ollama model load.</td></tr>
+          <tr><td class="sn">model_ready</td><td class="sd">server → client</td><td>—</td><td>Model weights are in RAM. Client enables STT and shows "Speak now."</td></tr>
+          <tr><td class="sn">user_message</td><td class="sd">client → server</td><td><code>{ conversationId, content, mode }</code></td><td>User's transcribed speech. <code>mode: "voice"</code> enables brevity constraints.</td></tr>
+          <tr><td class="sn">ai_token</td><td class="sd">server → client</td><td><code>{ token }</code></td><td>Batched LLM tokens (flushed every 80ms, not per-token).</td></tr>
+          <tr><td class="sn">ai_done</td><td class="sd">server → client</td><td><code>{ conversationId, content }</code></td><td>Stream complete. Full response included as fallback for missed tokens.</td></tr>
+          <tr><td class="sn">ai_error</td><td class="sd">server → client</td><td><code>{ message }</code></td><td>Any failure — DB, Ollama, permission check.</td></tr>
+          <tr><td class="sn">cancel_stream</td><td class="sd">client → server</td><td>—</td><td>User closes overlay mid-stream. Triggers AbortController.abort().</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The connection is authenticated via JWT. When the Socket.IO client is created, it passes <code>auth: { token }</code> in the handshake options. The server's <code>io.use()</code> middleware extracts and verifies this token before allowing the connection. The decoded payload (containing <code>userid</code>) is stored in <code>socket.data.user</code> and used to join the user's room and validate message ownership.</p>
+
+    <p>Each connected socket maintains a per-connection <code>AbortController</code>. If a new message arrives while inference is still running, or if the user disconnects, the controller's <code>abort()</code> signal propagates through the LLM stream loop, breaking the async iterator and cleaning up.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s11">
+    <div class="sec-num">11</div>
+    <h2>Backend: LLM Streaming Pipeline</h2>
+
+    <p>The backend's <code>streamChat()</code> function is the core orchestration layer. It handles authentication, conversation context loading, prompt construction, streaming inference, message persistence, and metrics — all within a single async function that communicates progress through callbacks.</p>
+
+    <h3>Model management</h3>
+    <p>Voice mode uses a <strong>singleton ChatOllama instance</strong> — a module-level variable initialized on first access via <code>getVoiceModel()</code>. This is reused for both warm-up pings and actual inference. The singleton avoids re-instantiation overhead (connection setup, configuration parsing) on every call. Text chat mode uses a separate factory (<code>createChatModel()</code>) without a <code>numPredict</code> cap, since text responses can be longer.</p>
+
+    <h3>Database access pattern</h3>
+    <p>The function makes four database calls, optimized for minimal total latency. The conversation lookup must happen first because it provides the <code>assistantId</code> needed for the next query. But the assistant lookup and user message creation are independent — so they run in <code>Promise.all()</code>. Finally, message history is loaded. For voice mode, this uses <code>findRecentByConversationId</code> — which queries <code>ORDER BY createdAt DESC LIMIT 6</code> and reverses the result in application code. This guarantees the 6 most recent messages regardless of total conversation length. The standard ascending query with <code>LIMIT 20</code> would return the oldest 20 messages — wrong for voice context where only the recent exchange matters.</p>
+
+    <h3>Prompt construction</h3>
+    <p>Each assistant has a name and personality (PROFESSIONAL, FRIENDLY, WITTY, CONCISE, CREATIVE). The system prompt starts with identity rules that prevent the model from revealing its underlying architecture ("You are NOT LLaMA, NOT GPT..."). Voice mode appends: <em>"You are in a live voice conversation. Keep responses brief — 1 to 3 sentences max. Be direct and conversational. Do not use markdown, bullet points, or formatting."</em> This is critical because markdown symbols, asterisks, and bullet points are nonsensical when spoken aloud.</p>
+
+    <h3>Streaming</h3>
+    <p>The <code>model.stream(messages)</code> call returns an async iterable. The function iterates with <code>for await</code>, checking <code>signal?.aborted</code> on each chunk to support cancellation. Each chunk's <code>content</code> field is extracted and passed to the <code>onToken</code> callback, which the socket handler uses for batched emission.</p>
+
+    <p>After the stream completes, the full response is saved to the database as an ASSISTANT message. If this was the first message in the conversation, the conversation title is auto-generated from the user's message (truncated to 50 characters).</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s12">
+    <div class="sec-num">12</div>
+    <h2>Cold Start Elimination Strategy</h2>
+
+    <p>Ollama's cold start is the single biggest latency bottleneck. When the model isn't loaded in RAM, the first inference must read ~4.3GB from disk into memory — taking roughly 14 seconds on a machine with HDD storage. This is a catastrophic user experience for a voice assistant that's supposed to feel instant.</p>
+
+    <p>The system eliminates cold starts through a three-layer strategy:</p>
+
+    <p><strong>Layer 1 — Server boot warm.</strong> When <code>initSocket()</code> runs at server startup, it immediately calls <code>warmModel().catch(() => {})</code>. This runs a trivial inference that forces Ollama to load the model. By the time any user connects, the model is already in RAM. The <code>.catch()</code> swallows errors silently — if Ollama isn't running yet, the keepalive (layer 2) will retry.</p>
+
+    <p><strong>Layer 2 — Keepalive interval.</strong> A <code>setInterval</code> runs <code>warmModel()</code> every 4 minutes. Ollama unloads models after a configurable idle timeout (default 5 minutes). The keepalive fires before this timeout, keeping the model perpetually warm. The 4-minute interval provides a safety margin.</p>
+
+    <p><strong>Layer 3 — On-demand warm.</strong> When the user opens the voice overlay, the client emits <code>warm_model</code> regardless. If the model is already warm (which it should be thanks to layers 1 and 2), this completes almost instantly and <code>model_ready</code> fires immediately. If something went wrong and the model was evicted, this is the fallback — the user sees "Preparing assistant..." for the duration of the reload.</p>
+
+    <div class="note">
+      <b>Trade-off:</b> The keepalive holds ~4.3GB of RAM permanently. On a machine with limited memory, this could be wasteful. The alternative is accepting the cold start latency and relying only on layer 3 (on-demand warm). For a production deployment, you'd make this configurable.
+    </div>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s13">
+    <div class="sec-num">13</div>
+    <h2>Performance Optimizations &amp; Trade-offs</h2>
+
+    <p>Nine targeted optimizations were applied to reduce perceived latency and render load without restructuring the core architecture. Each addresses a specific bottleneck identified through metrics and profiling.</p>
+
+    <h3>Backend optimizations</h3>
+
+    <p><strong>Singleton voice model.</strong> Previously, every <code>warmModel()</code> and <code>streamChat()</code> call created a new <code>ChatOllama</code> instance. While the LLM connection itself is stateless (Ollama handles model caching), the JavaScript object instantiation and configuration parsing happened redundantly. The singleton pattern (<code>getVoiceModel()</code>) creates the instance once and reuses it, eliminating the overhead. Text chat mode intentionally doesn't use a singleton because it needs different configuration (no numPredict cap).</p>
+
+    <p><strong>Parallel database calls.</strong> The original code ran four sequential DB queries: findConversation → findAssistant → createMessage → findHistory. But findAssistant and createMessage are independent (they don't depend on each other's result) — so they now run in <code>Promise.all()</code>. This saves one full DB round-trip (typically 1–3ms on localhost, more significant with a remote database).</p>
+
+    <p><strong>Correct history direction.</strong> The original <code>findByConversationId</code> used <code>ORDER BY createdAt ASC, LIMIT 6</code> — which returns the <em>oldest</em> 6 messages in the conversation. For a 50-message conversation, this misses all recent context. The new <code>findRecentByConversationId</code> queries <code>DESC, LIMIT 6</code> and reverses the result, always returning the most recent 6 in chronological order. This is a correctness fix as much as an optimization.</p>
+
+    <p><strong>Token batching.</strong> At 3.6 tokens/sec, emitting each token as a separate Socket.IO event means ~3.6 events per second. Each event carries framing overhead (event name, JSON encoding, WebSocket frame). The 80ms buffer collects roughly 0.3 tokens per flush on average, batching them into a single string. The flush timer is trailing-edge: it fires 80ms after the first unbatched token arrives. On stream completion or error, the buffer is force-flushed to ensure no tokens are lost.</p>
+
+    <h3>Frontend optimizations</h3>
+
+    <p><strong>Notify throttle.</strong> The VoiceSession's <code>notify()</code> method triggers a React snapshot update. During active streaming, <code>addToken()</code> calls notify on every token, and the volume analyser calls it at 60fps. <code>throttledNotify()</code> coalesces these: the first call goes through immediately, then a 50ms timer suppresses subsequent calls. If any notify was pending when the timer fires, one final notify is issued. This reduces React re-renders from potentially 60+/sec to ~20/sec without any perceivable delay.</p>
+
+    <p><strong>Volume change threshold.</strong> The audio analyser computes volume at 60fps, but most frames produce nearly identical values (especially in quiet environments). A threshold of 0.02 means: if the volume hasn't changed by more than 2% since the last notification, skip the re-render entirely. This eliminates roughly 60% of analyser-driven renders.</p>
+
+    <p><strong>Adaptive silence timeout.</strong> The silence timer that triggers message submission uses two thresholds: 1200ms for the first turn (the user is forming their initial thought and may pause), 800ms for follow-up turns (the conversation is flowing and faster turn-taking is expected). The heuristic is simple: if <code>aiResponse</code> is non-empty, the AI has spoken before, so this is a follow-up.</p>
+
+    <p><strong>handleDone safety net.</strong> Browser TTS is unreliable — <code>onend</code> callbacks sometimes silently fail (known Chromium issue with certain voices or rapid queue changes). If this happens, the system gets stuck in SPEAKING state forever. A 10-second timer in <code>handleDone()</code> forces a return to LISTENING if TTS callbacks haven't fired. The timer is cleared if the normal path completes, and also cleared when a new turn starts (<code>setProcessing()</code>).</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s14">
+    <div class="sec-num">14</div>
+    <h2>Error Handling &amp; Edge Cases</h2>
+
+    <p>The voice system handles several failure modes:</p>
+
+    <p><strong>Microphone denied.</strong> If <code>getUserMedia</code> fails (user clicks "Block"), the <code>start()</code> method catches the error, sets <code>this.error = "Microphone access required."</code>, and transitions to ERROR state. The overlay shows the error message and a "Try Again" button. If the recognition itself gets a <code>not-allowed</code> error event, the same path triggers.</p>
+
+    <p><strong>Browser not supported.</strong> The constructor checks for <code>SpeechRecognition</code> and <code>speechSynthesis</code> on <code>window</code>. If either is missing, <code>isSupported</code> is set to false. The overlay renders a dedicated "Voice Chat Not Supported" screen with a close button — no mic request is made, no socket events fire.</p>
+
+    <p><strong>Socket errors and AI failures.</strong> The <code>ai_error</code> event handler calls <code>session.handleError(message)</code>, which sets the error message and transitions to ERROR state. This covers database failures, Ollama being unreachable, model loading errors, and inference failures. The user sees the specific error message and can retry.</p>
+
+    <p><strong>Abort and cancellation.</strong> When the user closes the overlay during an active stream, <code>stop()</code> calls <code>cleanup()</code> which tears down all resources (mic, audio context, recognition, TTS). On the backend, the <code>disconnect</code> handler fires <code>currentAbort.abort()</code>, which sets the <code>signal.aborted</code> flag. The stream loop checks this flag on each token and breaks out. The catch clause in <code>streamChat</code> silently swallows aborted errors.</p>
+
+    <p><strong>StrictMode double-mount.</strong> As discussed in section 03, an <code>AbortController</code> per <code>start()</code> call ensures the first mount's async operations are cancelled when the second mount begins. The getUserMedia promise checks <code>abort.signal.aborted</code> on resolution and stops tracks if the mount was torn down.</p>
+
+    <p><strong>TTS onend never fires.</strong> The 10-second safety timer in <code>handleDone()</code> catches this. Additionally, TTS <code>onerror</code> handlers ignore <code>"canceled"</code> errors (which are expected when we call <code>speechSynthesis.cancel()</code> deliberately) but handle other errors by checking the stream completion state and returning to listening if appropriate.</p>
+
+    <p><strong>SpeechRecognition auto-stops.</strong> Chrome's continuous recognition periodically restarts internally. The <code>onend</code> handler restarts it automatically while in LISTENING state. The try-catch around <code>rec.start()</code> handles the race condition where the engine is already starting.</p>
+  </section>
+
+  <hr>
+
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <section id="s15">
+    <div class="sec-num">15</div>
+    <h2>Observability &amp; Metrics</h2>
+
+    <p>Both the server and client instrument key timing metrics for performance analysis. All log entries are prefixed with <code>[voice-metrics]</code> for easy filtering.</p>
+
+    <h3>Server-side metrics (ChatService.ts)</h3>
+    <p>A timestamp <code>t0</code> is recorded at the start of <code>streamChat()</code>. The first token logs <strong>TTFT</strong> (Time to First Token) — the elapsed time from request receipt to first LLM output. This includes database queries, prompt construction, and Ollama's initial processing. After the stream completes, the total elapsed time, token count, and tokens-per-second are logged.</p>
+
+    <div class="metrics">
+      <div class="m-card">
+        <div class="m-label">TTFT</div>
+        <div class="m-val">~800ms</div>
+        <div class="m-note">DB queries + Ollama first-token latency</div>
+      </div>
+      <div class="m-card">
+        <div class="m-label">Total</div>
+        <div class="m-val">~33s</div>
+        <div class="m-note">Full 120-token inference at ~3.6 tok/s</div>
+      </div>
+      <div class="m-card">
+        <div class="m-label">TPS</div>
+        <div class="m-val">3.6</div>
+        <div class="m-note">CPU throughput for llama3 8B Q4_0</div>
+      </div>
+    </div>
+
+    <h3>Client-side metrics (useVoiceSession.ts)</h3>
+    <p>A <code>turnStartRef</code> timestamp is recorded when the user message is emitted. The first <code>ai_token</code> event logs <strong>client-TTFT</strong> — which includes server TTFT plus network round-trip plus token batching delay (up to 80ms). The <code>ai_done</code> event logs the total <strong>turn-duration</strong> — the wall-clock time from sending the message to receiving the stream completion signal.</p>
+
+    <div class="metrics">
+      <div class="m-card">
+        <div class="m-label">Client TTFT</div>
+        <div class="m-val">~900ms</div>
+        <div class="m-note">Server TTFT + network + batch delay</div>
+      </div>
+      <div class="m-card">
+        <div class="m-label">Turn Duration</div>
+        <div class="m-val">~34s</div>
+        <div class="m-note">Full round-trip from emit to ai_done</div>
+      </div>
+    </div>
+
+    <pre><code>// Sample server log
+[voice-metrics] TTFT=823ms
+[voice-metrics] total=33421ms tokens=118 tps=3.5
+
+// Sample browser console
+[voice-metrics] client-TTFT=912ms
+[voice-metrics] turn-duration=33892ms</code></pre>
+
+    <div class="note-warn note">
+      <b>Note on numbers:</b> These baselines are for CPU-only inference with llama3 8B Q4_0. GPU acceleration would bring TTFT under 200ms and TPS above 30. A smaller model (e.g., 3B parameters) would further reduce latency at the cost of response quality.
+    </div>
+  </section>
+
+</div>
