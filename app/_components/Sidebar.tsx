@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { Menu, Plus, MessageSquare, X, LogOut } from "lucide-react";
 import { useAuth } from "@/app/lib/auth-context";
 import { useConversation } from "@/app/lib/conversation-context";
 import { ChatItem } from "./ChatItem";
 
-export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false);
+interface SidebarProps {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+}
+
+export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const { logout } = useAuth();
   const {
     conversations,
@@ -32,15 +35,6 @@ export default function Sidebar() {
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
           onClick={() => setIsOpen(false)}
         />
-      )}
-
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed top-4 left-4 p-2 bg-[#0B0F19] border border-white/10 rounded-lg text-gray-400 z-30 md:hidden hover:bg-white/5"
-        >
-          <Menu size={20} />
-        </button>
       )}
 
       <aside

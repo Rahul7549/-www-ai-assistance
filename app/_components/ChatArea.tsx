@@ -10,7 +10,7 @@ import { getSocket, disconnectSocket } from "@/app/lib/socket";
 import { api } from "@/app/lib/api";
 import { ENDPOINTS } from "@/app/lib/endpoints";
 import { useConversation } from "@/app/lib/conversation-context";
-import { ChevronDown, MessageSquare, PencilIcon, CheckIcon, X } from "lucide-react";
+import { ChevronDown, MessageSquare, PencilIcon, CheckIcon, X, Menu, PenSquare } from "lucide-react";
 
 interface ChatMessage {
   id: string;
@@ -24,7 +24,11 @@ interface MessageFromAPI {
   content: string;
 }
 
-export default function ChatArea() {
+interface ChatAreaProps {
+  onOpenSidebar?: () => void;
+}
+
+export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -232,11 +236,84 @@ export default function ChatArea() {
 
   return (
     <div className="relative bg-bg-deep h-screen flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center justify-between p-3 pl-0 border-b-white/5 border-b shrink-0">
-        <div className="flex items-center gap-3 pl-6">
+      {/* Header — Mobile: compact ChatGPT-style, Desktop: full with avatar & profile */}
+
+      {/* Mobile header */}
+      <header className="flex md:hidden items-center justify-between px-3 py-2 shrink-0">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onOpenSidebar}
+            className="p-2 rounded-lg text-gray-400 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <Menu size={20} />
+          </button>
+
+          {isEditingName ? (
+            <div className="flex items-center gap-2 ml-1">
+              <input
+                autoFocus
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const trimmed = editName.trim();
+                    if (trimmed && trimmed !== assistant?.name) renameAssistant(trimmed);
+                    setIsEditingName(false);
+                  }
+                  if (e.key === "Escape") setIsEditingName(false);
+                }}
+                className="bg-white/[0.05] border border-white/10 rounded-lg px-2 py-1 text-sm text-white font-semibold focus:outline-none focus:border-indigo-500/60 w-32"
+              />
+              <button
+                onClick={() => {
+                  const trimmed = editName.trim();
+                  if (trimmed && trimmed !== assistant?.name) renameAssistant(trimmed);
+                  setIsEditingName(false);
+                }}
+                className="p-1 rounded hover:bg-white/10 text-green-400 cursor-pointer"
+              >
+                <CheckIcon size={16} />
+              </button>
+              <button
+                onClick={() => setIsEditingName(false)}
+                className="p-1 rounded hover:bg-white/10 text-gray-400 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setEditName(assistant?.name ?? ""); setIsEditingName(true); }}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <span className="font-semibold text-sm text-white">{assistant?.name ?? "Nova"}</span>
+              <ChevronDown size={16} className="text-gray-500" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => selectConversation(null)}
+            className="p-2 rounded-lg text-gray-400 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+            title="New chat"
+          >
+            <PenSquare size={20} />
+          </button>
+          <button
+            onClick={() => setIsRightPanelOpen(true)}
+            className="lg:hidden p-2 rounded-lg text-gray-400 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <MessageSquare size={20} />
+          </button>
+        </div>
+      </header>
+
+      {/* Desktop header */}
+      <header className="hidden md:flex items-center justify-between p-3 pl-6 border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border border-white/10 flex items-center justify-center text-white font-semibold"
+            className="w-12 h-12 rounded-full overflow-hidden border border-white/10 flex items-center justify-center text-white font-semibold"
             style={{ background: "linear-gradient(135deg, #6366f1, #a78bfa)" }}
           >
             {assistant?.avatar && assistant.avatar !== "default" ? (
@@ -285,7 +362,7 @@ export default function ChatArea() {
               </div>
             ) : (
               <div className="flex items-center gap-2 group/name">
-                <h2 className="font-semibold text-sm md:text-lg">{assistant?.name ?? "Nova"}</h2>
+                <h2 className="font-semibold text-lg">{assistant?.name ?? "Nova"}</h2>
                 <button
                   onClick={() => { setEditName(assistant?.name ?? ""); setIsEditingName(true); }}
                   className="p-1 rounded hover:bg-white/10 text-white/0 group-hover/name:text-white/40 transition-colors cursor-pointer"
@@ -294,38 +371,16 @@ export default function ChatArea() {
                 </button>
               </div>
             )}
-            <p className="text-[10px] md:text-xs text-green-400 flex items-center gap-1">
+            <p className="text-xs text-green-400 flex items-center gap-1">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Online
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4 pr-4">
-          <div className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 ml-2 md:ml-4 border-l border-white/10 group cursor-pointer">
-            <div className="relative hidden xs:block">
-              <div className="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden border-2 border-white/5 group-hover:border-blue-500/50 transition-all duration-300">
-                <img
-                  src="https://pngtree.com"
-                  alt="User"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 border border-[#030712] rounded-full" />
-            </div>
-            <div className="flex-col text-left hidden sm:flex">
-              <span className="text-xs font-semibold text-white leading-tight group-hover:text-blue-400">
-                Rahul Kumar Sharma
-              </span>
-              <span className="text-[10px] text-blue-400/80 font-medium uppercase mt-0.5">
-                Pro Plan
-              </span>
-            </div>
-            <ChevronDown size={16} className="text-gray-500 group-hover:text-white" />
-          </div>
-
+        <div className="flex items-center gap-4 pr-4">
           <button
             onClick={() => setIsRightPanelOpen(true)}
-            className="lg:hidden p-2 text-gray-400 hover:text-white border border-white/10 rounded-lg ml-2"
+            className="lg:hidden p-2 text-gray-400 hover:text-white border border-white/10 rounded-lg"
           >
             <MessageSquare size={20} />
           </button>
