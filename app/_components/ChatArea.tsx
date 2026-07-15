@@ -12,10 +12,18 @@ import { ENDPOINTS } from "@/app/lib/endpoints";
 import { useConversation } from "@/app/lib/conversation-context";
 import { ChevronDown, MessageSquare, PencilIcon, CheckIcon, X, Menu, PenSquare } from "lucide-react";
 
+export interface PdfAttachment {
+  fileName: string;
+  url: string;
+  pageCount: number;
+  fileSize: string;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  pdfAttachment?: PdfAttachment;
 }
 
 interface MessageFromAPI {
@@ -34,6 +42,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [pdfCards, setPdfCards] = useState<Map<string, PdfAttachment>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingContentRef = useRef("");
   const skipLoadRef = useRef(false);
@@ -79,6 +88,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
   useEffect(() => {
     if (!selectedConversationId) {
       setMessages([]);
+      setPdfCards(new Map());
       return;
     }
 
@@ -131,6 +141,15 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
           ];
         }
         return prev;
+      });
+    });
+
+    socket.on("pdf_ready", (data: PdfAttachment & { conversationId?: string }) => {
+      if (!mounted) return;
+      setPdfCards((prev) => {
+        const next = new Map(prev);
+        next.set("latest", data);
+        return next;
       });
     });
 
@@ -425,6 +444,11 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
               const prevMsg = messages[idx - 1];
               const showHeader = msg.role !== "assistant" || !prevMsg || prevMsg.role !== "assistant";
               const canModify = msg.role === "user" && msg.id !== "streaming" && !isStreaming && !!selectedConversationId;
+
+              const isLastAssistant = msg.role === "assistant" && msg.id !== "streaming"
+                && !messages.slice(idx + 1).some((m) => m.role === "assistant" && m.id !== "streaming");
+              const pdf = isLastAssistant ? pdfCards.get("latest") : undefined;
+
               return (
                 <MessageBubble
                   key={msg.id}
@@ -434,6 +458,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
                   assistantName={assistant?.name}
                   assistantAvatar={assistant?.avatar}
                   showHeader={showHeader}
+                  pdfAttachment={pdf}
                   onEdit={canModify ? (newContent: string) => handleEditMessage(msg.id, newContent) : undefined}
                   onDelete={canModify ? () => handleDeleteMessage(msg.id) : undefined}
                 />
