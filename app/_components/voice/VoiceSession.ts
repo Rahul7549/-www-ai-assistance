@@ -394,6 +394,8 @@ export class VoiceSession {
       this.micStream = stream;
       this.setupAnalyser(stream);
       this.state = "LISTENING";
+      this.isWarmingUp = false;
+      this.setupRecognition();
       this.notify();
     } catch {
       if (abort.signal.aborted) return;
