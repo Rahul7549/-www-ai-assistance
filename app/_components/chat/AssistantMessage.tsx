@@ -4,6 +4,8 @@ import { useState } from "react";
 import ReactMarkdown, { Components } from "react-markdown";
 import { CopyIcon, RotateCcwIcon, SparklesIcon } from "lucide-react";
 import CodeBlock from "./CodeBlock";
+import PdfPreviewCard from "./PdfPreviewCard";
+import type { PdfAttachment } from "../ChatArea";
 
 interface AssistantMessageProps {
   content: string;
@@ -11,9 +13,10 @@ interface AssistantMessageProps {
   assistantName?: string;
   assistantAvatar?: string;
   showHeader?: boolean;
+  pdfAttachment?: PdfAttachment;
 }
 
-export default function AssistantMessage({ content, isStreaming, assistantName = "Nova", assistantAvatar, showHeader = true }: AssistantMessageProps) {
+export default function AssistantMessage({ content, isStreaming, assistantName = "Nova", assistantAvatar, showHeader = true, pdfAttachment }: AssistantMessageProps) {
   const [copied, setCopied] = useState(false);
 
   const isError = content.startsWith("Error: ");
@@ -120,6 +123,14 @@ export default function AssistantMessage({ content, isStreaming, assistantName =
           <div className="text-[13.5px] text-white/[0.85] leading-[1.75]">
             <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
           </div>
+          {pdfAttachment && (
+            <PdfPreviewCard
+              fileName={pdfAttachment.fileName}
+              url={pdfAttachment.url}
+              pageCount={pdfAttachment.pageCount}
+              fileSize={pdfAttachment.fileSize}
+            />
+          )}
         </div>
 
         {!isStreaming && content && (

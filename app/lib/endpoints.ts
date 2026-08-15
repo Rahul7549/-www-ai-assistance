@@ -26,6 +26,10 @@ export const ENDPOINTS = {
     deleteMessage: (id: string, messageId: string) => `/api/conversations/${id}/messages/${messageId}`,
     delete: (id: string) => `/api/conversations/${id}`,
   },
+  pdf: {
+    generate: '/api/pdf/generate',
+    download: (fileName: string) => `/api/pdf/download/${fileName}`,
+  },
   health: '/health',
 } as const;
 
