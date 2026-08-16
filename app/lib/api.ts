@@ -6,6 +6,15 @@ type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 let refreshPromise: Promise<boolean> | null = null;
 
+function isTokenExpiring(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return typeof payload.exp === "number" && payload.exp * 1000 < Date.now() + 60_000;
+  } catch {
+    return true;
+  }
+}
+
 async function refreshTokens(): Promise<boolean> {
   const refreshToken = localStorage.getItem("refreshToken");
   if (!refreshToken) return false;
@@ -38,12 +47,22 @@ async function handleRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
+const AUTH_PATHS = new Set([ENDPOINTS.auth.login, ENDPOINTS.auth.refresh, ENDPOINTS.auth.register, ENDPOINTS.auth.logout]);
+
 async function request<T = unknown>(
   method: Method,
   path: string,
   body?: unknown
 ): Promise<T> {
   const url = `${BASE_URL}${path}`;
+  const isAuthPath = AUTH_PATHS.has(path);
+
+  if (!isAuthPath) {
+    const token = localStorage.getItem("accessToken");
+    if (token && isTokenExpiring(token)) {
+      await handleRefresh();
+    }
+  }
 
   const buildHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -60,7 +79,7 @@ async function request<T = unknown>(
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  if (res.status === 401 && path !== ENDPOINTS.auth.login && path !== ENDPOINTS.auth.refresh) {
+  if (res.status === 401 && !isAuthPath) {
     const refreshed = await handleRefresh();
     if (refreshed) {
       res = await fetch(url, {

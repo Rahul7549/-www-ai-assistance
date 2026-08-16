@@ -6,10 +6,11 @@ let socket: Socket | null = null;
 export const getSocket = (): Socket => {
   if (!socket) {
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
-    const token = localStorage.getItem("accessToken");
 
     socket = io(baseUrl, {
-      auth: { token },
+      auth: (cb) => {
+        cb({ token: localStorage.getItem("accessToken") });
+      },
       autoConnect: false,
       reconnection: true,
       reconnectionAttempts: 5,
