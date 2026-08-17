@@ -135,6 +135,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
       streamingContentRef.current = "";
       setIsStreaming(false);
       setIsSearching(false);
+      setIndexingFiles([]);
       if (data.sourceFiles?.length) {
         setLastSourceFiles(data.sourceFiles);
       } else {
