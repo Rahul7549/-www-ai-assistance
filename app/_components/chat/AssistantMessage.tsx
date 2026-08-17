@@ -14,9 +14,10 @@ interface AssistantMessageProps {
   assistantAvatar?: string;
   showHeader?: boolean;
   pdfAttachment?: PdfAttachment;
+  sourceFiles?: string[];
 }
 
-export default function AssistantMessage({ content, isStreaming, assistantName = "Nova", assistantAvatar, showHeader = true, pdfAttachment }: AssistantMessageProps) {
+export default function AssistantMessage({ content, isStreaming, assistantName = "Nova", assistantAvatar, showHeader = true, pdfAttachment, sourceFiles }: AssistantMessageProps) {
   const [copied, setCopied] = useState(false);
 
   const isError = content.startsWith("Error: ");
@@ -85,6 +86,22 @@ export default function AssistantMessage({ content, isStreaming, assistantName =
         </a>
       );
     },
+    img({ src, alt }) {
+      const srcStr = typeof src === "string" ? src : "";
+      const imgSrc = srcStr.startsWith("/api/")
+        ? `${process.env.NEXT_PUBLIC_API_BASE_URL ?? ""}${srcStr}`
+        : srcStr;
+      return (
+        <div className="my-3">
+          <img
+            src={imgSrc}
+            alt={alt || "Generated image"}
+            className="rounded-xl max-w-full max-h-[400px] object-contain border border-white/10"
+            loading="lazy"
+          />
+        </div>
+      );
+    },
   };
 
   return (
@@ -123,6 +140,13 @@ export default function AssistantMessage({ content, isStreaming, assistantName =
           <div className="text-[13.5px] text-white/[0.85] leading-[1.75]">
             <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
           </div>
+          {sourceFiles && sourceFiles.length > 0 && (
+            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-indigo-400/70">
+              <span className="bg-indigo-500/10 px-2 py-0.5 rounded-full">
+                Based on: {sourceFiles.join(", ")}
+              </span>
+            </div>
+          )}
           {pdfAttachment && (
             <PdfPreviewCard
               fileName={pdfAttachment.fileName}

@@ -14,11 +14,12 @@ interface MessageBubbleProps {
   pdfAttachment?: PdfAttachment;
   onEdit?: (newContent: string) => void;
   onDelete?: () => void;
+  sourceFiles?: string[];
 }
 
-export default function MessageBubble({ role, content, isStreaming, assistantName, assistantAvatar, showHeader = true, pdfAttachment, onEdit, onDelete }: MessageBubbleProps) {
+export default function MessageBubble({ role, content, isStreaming, assistantName, assistantAvatar, showHeader = true, pdfAttachment, onEdit, onDelete, sourceFiles }: MessageBubbleProps) {
   if (role === "user") {
     return <UserMessage content={content} onEdit={onEdit} onDelete={onDelete} />;
   }
-  return <AssistantMessage content={content} isStreaming={isStreaming} assistantName={assistantName} assistantAvatar={assistantAvatar} showHeader={showHeader} pdfAttachment={pdfAttachment} />;
+  return <AssistantMessage content={content} isStreaming={isStreaming} assistantName={assistantName} assistantAvatar={assistantAvatar} showHeader={showHeader} pdfAttachment={pdfAttachment} sourceFiles={sourceFiles} />;
 }

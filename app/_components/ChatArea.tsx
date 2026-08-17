@@ -24,6 +24,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   pdfAttachment?: PdfAttachment;
+  sourceFiles?: string[];
 }
 
 interface MessageFromAPI {
@@ -44,6 +45,8 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [pdfCards, setPdfCards] = useState<Map<string, PdfAttachment>>(new Map());
   const [inputPrefill, setInputPrefill] = useState<{ text: string; key: number }>({ text: "", key: 0 });
+  const [indexingFiles, setIndexingFiles] = useState<string[]>([]);
+  const [lastSourceFiles, setLastSourceFiles] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingContentRef = useRef("");
   const skipLoadRef = useRef(false);
@@ -121,12 +124,22 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
       });
     });
 
-    socket.on("ai_done", (data: { conversationId: string }) => {
+    socket.on("ai_done", (data: { conversationId: string; sourceFiles?: string[] }) => {
       if (!mounted) return;
       streamingContentRef.current = "";
       setIsStreaming(false);
+      if (data.sourceFiles?.length) {
+        setLastSourceFiles(data.sourceFiles);
+      } else {
+        setLastSourceFiles([]);
+      }
       loadMessagesFromDB(data.conversationId);
       refreshConversations();
+    });
+
+    socket.on("indexing_complete", (data: { fileId: string; fileName: string }) => {
+      if (!mounted) return;
+      setIndexingFiles((prev) => prev.filter((name) => name !== data.fileName));
     });
 
     socket.on("ai_error", (data: { message: string }) => {
@@ -176,6 +189,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
       socket.off("ai_error");
       socket.off("ai_image");
       socket.off("pdf_ready");
+      socket.off("indexing_complete");
       disconnectSocket();
     };
   }, [refreshConversations, loadMessagesFromDB]);
@@ -483,9 +497,17 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
                   pdfAttachment={pdf}
                   onEdit={canModify ? (newContent: string) => handleEditMessage(msg.id, newContent) : undefined}
                   onDelete={canModify ? () => handleDeleteMessage(msg.id) : undefined}
+                  sourceFiles={isLastAssistant ? lastSourceFiles : undefined}
                 />
               );
             })}
+
+            {indexingFiles.length > 0 && (
+              <div className="flex items-center gap-2 text-xs text-indigo-400/70 px-4">
+                <div className="w-3 h-3 border-2 border-indigo-400/50 border-t-transparent rounded-full animate-spin" />
+                Indexing: {indexingFiles.join(", ")}
+              </div>
+            )}
 
             {isStreaming && messages[messages.length - 1]?.content === "" && (
               <StreamingIndicator assistantName={assistant?.name} assistantAvatar={assistant?.avatar} />
