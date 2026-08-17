@@ -18,7 +18,7 @@ interface UploadResponse {
 
 interface ChatInputProps {
     onMicClick?: () => void;
-    onSend: (message: string, fileIds?: string[]) => void;
+    onSend: (message: string, fileIds?: string[], fileNames?: string[]) => void;
     onStop?: () => void;
     disabled?: boolean;
     isStreaming?: boolean;
@@ -86,7 +86,11 @@ export default function ChatInput({ onMicClick, onSend, onStop, disabled, isStre
             setIsUploading(false);
         }
 
-        onSend(trimmed || "Analyze the attached file(s)", fileIds);
+        const docFileNames = attachedFiles
+            .filter((af) => !af.file.type.startsWith("image/"))
+            .map((af) => af.file.name);
+
+        onSend(trimmed || "Analyze the attached file(s)", fileIds, docFileNames);
         setInput("");
         attachedFiles.forEach((f) => { if (f.preview) URL.revokeObjectURL(f.preview); });
         setAttachedFiles([]);

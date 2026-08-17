@@ -118,12 +118,29 @@ export const api = {
     if (token && isTokenExpiring(token)) {
       await handleRefresh();
     }
-    const headers: Record<string, string> = {};
-    const currentToken = localStorage.getItem("accessToken");
-    if (currentToken) {
-      headers["Authorization"] = `Bearer ${currentToken}`;
+    const buildHeaders = (): Record<string, string> => {
+      const headers: Record<string, string> = {};
+      const currentToken = localStorage.getItem("accessToken");
+      if (currentToken) {
+        headers["Authorization"] = `Bearer ${currentToken}`;
+      }
+      return headers;
+    };
+
+    let res = await fetch(url, { method: "POST", headers: buildHeaders(), body: formData });
+
+    if (res.status === 401) {
+      const refreshed = await handleRefresh();
+      if (refreshed) {
+        res = await fetch(url, { method: "POST", headers: buildHeaders(), body: formData });
+      } else {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        window.location.href = "/login";
+        throw new Error("Session expired");
+      }
     }
-    const res = await fetch(url, { method: "POST", headers, body: formData });
+
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
       throw new Error((error as { message?: string }).message ?? `Upload failed (${res.status})`);

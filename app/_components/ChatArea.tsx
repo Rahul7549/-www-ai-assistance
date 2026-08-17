@@ -203,8 +203,12 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
     };
   }, [refreshConversations, loadMessagesFromDB]);
 
-  const handleSend = async (content: string, fileIds?: string[]) => {
+  const handleSend = async (content: string, fileIds?: string[], fileNames?: string[]) => {
     if (isStreaming || !assistant) return;
+
+    if (fileNames?.length) {
+      setIndexingFiles(fileNames);
+    }
 
     let activeConversationId = selectedConversationId;
 
