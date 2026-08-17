@@ -84,13 +84,19 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
       const res = await api.get<{ success: boolean; data: MessageFromAPI[] }>(
         ENDPOINTS.conversations.messages(convId)
       );
-      setMessages(
-        res.data.map((m) => ({
-          id: m.id,
-          role: m.role === "USER" ? "user" : "assistant",
-          content: m.content,
-        }))
-      );
+      setMessages((prev) => {
+        const filesMap = new Map<string, FileAttachment[]>();
+        for (const m of prev) {
+          if (m.role === "user" && m.files?.length) {
+            filesMap.set(m.content, m.files);
+          }
+        }
+        return res.data.map((m) => {
+          const role: "user" | "assistant" = m.role === "USER" ? "user" : "assistant";
+          const files = role === "user" ? filesMap.get(m.content) : undefined;
+          return { id: m.id, role, content: m.content, ...(files && { files }) };
+        });
+      });
     } catch (err) {
       console.error("Failed to load messages:", err);
     }
