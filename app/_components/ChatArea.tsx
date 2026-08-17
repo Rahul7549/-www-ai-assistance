@@ -43,6 +43,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [pdfCards, setPdfCards] = useState<Map<string, PdfAttachment>>(new Map());
+  const [inputPrefill, setInputPrefill] = useState<{ text: string; key: number }>({ text: "", key: 0 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingContentRef = useRef("");
   const skipLoadRef = useRef(false);
@@ -144,6 +145,21 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
       });
     });
 
+    socket.on("ai_image", (data: { url: string; conversationId: string }) => {
+      if (!mounted) return;
+      streamingContentRef.current = "";
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.id === "streaming") {
+          return [
+            ...prev.slice(0, -1),
+            { ...last, id: crypto.randomUUID(), content: `![Generated Image](${data.url})` },
+          ];
+        }
+        return prev;
+      });
+    });
+
     socket.on("pdf_ready", (data: PdfAttachment & { conversationId?: string }) => {
       if (!mounted) return;
       setPdfCards((prev) => {
@@ -155,11 +171,16 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
 
     return () => {
       mounted = false;
+      socket.off("ai_token");
+      socket.off("ai_done");
+      socket.off("ai_error");
+      socket.off("ai_image");
+      socket.off("pdf_ready");
       disconnectSocket();
     };
   }, [refreshConversations, loadMessagesFromDB]);
 
-  const handleSend = async (content: string) => {
+  const handleSend = async (content: string, fileIds?: string[]) => {
     if (isStreaming || !assistant) return;
 
     let activeConversationId = selectedConversationId;
@@ -195,6 +216,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
     socket.emit("user_message", {
       conversationId: activeConversationId,
       content,
+      fileIds,
     });
   };
 
@@ -480,6 +502,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
               onStop={handleStopStreaming}
               disabled={isStreaming || !assistant}
               isStreaming={isStreaming}
+              prefill={inputPrefill}
             />
           </div>
         </section>
@@ -498,7 +521,10 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
               <X size={20} className="text-gray-400" />
             </button>
           </div>
-          <ActionPanel />
+          <ActionPanel onAction={(prompt) => {
+            setInputPrefill((prev) => ({ text: prompt, key: prev.key + 1 }));
+            setIsRightPanelOpen(false);
+          }} />
         </aside>
 
         {isRightPanelOpen && (

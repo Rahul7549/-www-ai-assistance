@@ -47,7 +47,7 @@ async function handleRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
-const AUTH_PATHS = new Set([ENDPOINTS.auth.login, ENDPOINTS.auth.refresh, ENDPOINTS.auth.register, ENDPOINTS.auth.logout]);
+const AUTH_PATHS: Set<string> = new Set([ENDPOINTS.auth.login, ENDPOINTS.auth.refresh, ENDPOINTS.auth.register, ENDPOINTS.auth.logout]);
 
 async function request<T = unknown>(
   method: Method,
@@ -112,4 +112,22 @@ export const api = {
   put: <T = unknown>(path: string, body?: unknown) => request<T>("PUT", path, body),
   patch: <T = unknown>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   delete: <T = unknown>(path: string) => request<T>("DELETE", path),
+  upload: async <T = unknown>(path: string, formData: FormData): Promise<T> => {
+    const url = `${BASE_URL}${path}`;
+    const token = localStorage.getItem("accessToken");
+    if (token && isTokenExpiring(token)) {
+      await handleRefresh();
+    }
+    const headers: Record<string, string> = {};
+    const currentToken = localStorage.getItem("accessToken");
+    if (currentToken) {
+      headers["Authorization"] = `Bearer ${currentToken}`;
+    }
+    const res = await fetch(url, { method: "POST", headers, body: formData });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error((error as { message?: string }).message ?? `Upload failed (${res.status})`);
+    }
+    return res.json() as Promise<T>;
+  },
 };

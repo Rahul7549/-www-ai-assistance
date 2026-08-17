@@ -30,6 +30,10 @@ export const ENDPOINTS = {
     generate: '/api/pdf/generate',
     download: (fileName: string) => `/api/pdf/download/${fileName}`,
   },
+  files: {
+    upload: '/api/files/upload',
+    download: (id: string) => `/api/files/${id}/download`,
+  },
   health: '/health',
 } as const;
 
