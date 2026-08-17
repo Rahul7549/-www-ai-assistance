@@ -38,6 +38,7 @@ interface MessageFromAPI {
   id: string;
   role: "USER" | "ASSISTANT";
   content: string;
+  fileAttachments?: Array<{ name: string; mimeType: string; size: number }> | null;
 }
 
 interface ChatAreaProps {
@@ -84,19 +85,13 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
       const res = await api.get<{ success: boolean; data: MessageFromAPI[] }>(
         ENDPOINTS.conversations.messages(convId)
       );
-      setMessages((prev) => {
-        const filesMap = new Map<string, FileAttachment[]>();
-        for (const m of prev) {
-          if (m.role === "user" && m.files?.length) {
-            filesMap.set(m.content, m.files);
-          }
-        }
-        return res.data.map((m) => {
+      setMessages(
+        res.data.map((m) => {
           const role: "user" | "assistant" = m.role === "USER" ? "user" : "assistant";
-          const files = role === "user" ? filesMap.get(m.content) : undefined;
+          const files = m.fileAttachments?.length ? m.fileAttachments : undefined;
           return { id: m.id, role, content: m.content, ...(files && { files }) };
-        });
-      });
+        })
+      );
     } catch (err) {
       console.error("Failed to load messages:", err);
     }
