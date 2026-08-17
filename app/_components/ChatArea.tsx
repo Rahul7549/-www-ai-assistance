@@ -46,6 +46,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
   const [pdfCards, setPdfCards] = useState<Map<string, PdfAttachment>>(new Map());
   const [inputPrefill, setInputPrefill] = useState<{ text: string; key: number }>({ text: "", key: 0 });
   const [indexingFiles, setIndexingFiles] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [lastSourceFiles, setLastSourceFiles] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingContentRef = useRef("");
@@ -124,10 +125,16 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
       });
     });
 
+    socket.on("ai_searching", () => {
+      if (!mounted) return;
+      setIsSearching(true);
+    });
+
     socket.on("ai_done", (data: { conversationId: string; sourceFiles?: string[] }) => {
       if (!mounted) return;
       streamingContentRef.current = "";
       setIsStreaming(false);
+      setIsSearching(false);
       if (data.sourceFiles?.length) {
         setLastSourceFiles(data.sourceFiles);
       } else {
@@ -146,6 +153,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
       if (!mounted) return;
       streamingContentRef.current = "";
       setIsStreaming(false);
+      setIsSearching(false);
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last?.id === "streaming") {
@@ -190,6 +198,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
       socket.off("ai_image");
       socket.off("pdf_ready");
       socket.off("indexing_complete");
+      socket.off("ai_searching");
       disconnectSocket();
     };
   }, [refreshConversations, loadMessagesFromDB]);
@@ -501,6 +510,13 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
                 />
               );
             })}
+
+            {isSearching && (
+              <div className="flex items-center gap-2 text-xs text-indigo-400/70 px-4 py-2">
+                <div className="w-3 h-3 border-2 border-indigo-400/50 border-t-transparent rounded-full animate-spin" />
+                Searching the web...
+              </div>
+            )}
 
             {indexingFiles.length > 0 && (
               <div className="flex items-center gap-2 text-xs text-indigo-400/70 px-4">
