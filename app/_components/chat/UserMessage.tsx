@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { PencilIcon, Trash2Icon, CheckIcon, XIcon } from "lucide-react";
+import FileChip from "./FileChip";
+import type { FileAttachment } from "../ChatArea";
 
 interface UserMessageProps {
   content: string;
   onEdit?: (newContent: string) => void;
   onDelete?: () => void;
+  files?: FileAttachment[];
 }
 
-export default function UserMessage({ content, onEdit, onDelete }: UserMessageProps) {
+export default function UserMessage({ content, onEdit, onDelete, files }: UserMessageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
 
@@ -72,9 +75,24 @@ export default function UserMessage({ content, onEdit, onDelete }: UserMessagePr
     );
   }
 
+  const hasFiles = files && files.length > 0;
+
   return (
     <div className="flex w-full justify-end mb-6 group">
       <div className="max-w-[70%]">
+        {hasFiles && (
+          <div className="flex flex-wrap gap-1.5 mb-2 justify-end">
+            {files.map((f, i) => (
+              <FileChip
+                key={i}
+                name={f.name}
+                mimeType={f.mimeType}
+                size={f.size}
+                compact
+              />
+            ))}
+          </div>
+        )}
         <div
           className="px-[18px] py-3 text-white text-[13.5px] leading-normal"
           style={{

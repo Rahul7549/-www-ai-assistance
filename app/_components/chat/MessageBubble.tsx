@@ -2,7 +2,7 @@
 
 import UserMessage from "./UserMessage";
 import AssistantMessage from "./AssistantMessage";
-import type { PdfAttachment } from "../ChatArea";
+import type { PdfAttachment, FileAttachment } from "../ChatArea";
 
 interface MessageBubbleProps {
   role: "user" | "assistant";
@@ -15,11 +15,12 @@ interface MessageBubbleProps {
   onEdit?: (newContent: string) => void;
   onDelete?: () => void;
   sourceFiles?: string[];
+  files?: FileAttachment[];
 }
 
-export default function MessageBubble({ role, content, isStreaming, assistantName, assistantAvatar, showHeader = true, pdfAttachment, onEdit, onDelete, sourceFiles }: MessageBubbleProps) {
+export default function MessageBubble({ role, content, isStreaming, assistantName, assistantAvatar, showHeader = true, pdfAttachment, onEdit, onDelete, sourceFiles, files }: MessageBubbleProps) {
   if (role === "user") {
-    return <UserMessage content={content} onEdit={onEdit} onDelete={onDelete} />;
+    return <UserMessage content={content} onEdit={onEdit} onDelete={onDelete} files={files} />;
   }
   return <AssistantMessage content={content} isStreaming={isStreaming} assistantName={assistantName} assistantAvatar={assistantAvatar} showHeader={showHeader} pdfAttachment={pdfAttachment} sourceFiles={sourceFiles} />;
 }

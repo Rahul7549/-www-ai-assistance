@@ -16,9 +16,15 @@ interface UploadResponse {
     data: { id: string; fileName: string; originalName: string; mimeType: string; size: number; url: string };
 }
 
+export interface SentFileInfo {
+    name: string;
+    mimeType: string;
+    size: number;
+}
+
 interface ChatInputProps {
     onMicClick?: () => void;
-    onSend: (message: string, fileIds?: string[], fileNames?: string[]) => void;
+    onSend: (message: string, fileIds?: string[], fileNames?: string[], fileInfos?: SentFileInfo[]) => void;
     onStop?: () => void;
     disabled?: boolean;
     isStreaming?: boolean;
@@ -90,7 +96,13 @@ export default function ChatInput({ onMicClick, onSend, onStop, disabled, isStre
             .filter((af) => !af.file.type.startsWith("image/"))
             .map((af) => af.file.name);
 
-        onSend(trimmed || "Analyze the attached file(s)", fileIds, docFileNames);
+        const fileInfos: SentFileInfo[] = attachedFiles.map((af) => ({
+            name: af.file.name,
+            mimeType: af.file.type,
+            size: af.file.size,
+        }));
+
+        onSend(trimmed || "Analyze the attached file(s)", fileIds, docFileNames, fileInfos);
         setInput("");
         attachedFiles.forEach((f) => { if (f.preview) URL.revokeObjectURL(f.preview); });
         setAttachedFiles([]);

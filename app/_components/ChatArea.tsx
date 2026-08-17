@@ -19,12 +19,19 @@ export interface PdfAttachment {
   fileSize: string;
 }
 
+export interface FileAttachment {
+  name: string;
+  mimeType: string;
+  size: number;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   pdfAttachment?: PdfAttachment;
   sourceFiles?: string[];
+  files?: FileAttachment[];
 }
 
 interface MessageFromAPI {
@@ -204,7 +211,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
     };
   }, [refreshConversations, loadMessagesFromDB]);
 
-  const handleSend = async (content: string, fileIds?: string[], fileNames?: string[]) => {
+  const handleSend = async (content: string, fileIds?: string[], fileNames?: string[], fileInfos?: Array<{ name: string; mimeType: string; size: number }>) => {
     if (isStreaming || !assistant) return;
 
     if (fileNames?.length) {
@@ -230,7 +237,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
 
     setMessages((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), role: "user", content },
+      { id: crypto.randomUUID(), role: "user", content, files: fileInfos },
     ]);
 
     setIsStreaming(true);
@@ -512,6 +519,7 @@ export default function ChatArea({ onOpenSidebar }: ChatAreaProps) {
                   onEdit={canModify ? (newContent: string) => handleEditMessage(msg.id, newContent) : undefined}
                   onDelete={canModify ? () => handleDeleteMessage(msg.id) : undefined}
                   sourceFiles={isLastAssistant ? lastSourceFiles : undefined}
+                  files={msg.files}
                 />
               );
             })}
